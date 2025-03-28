@@ -1,0 +1,64 @@
+
+
+1. First, ensure that your Raspberry Pi runs the latest software. Run the following command to update: $ sudo apt update && sudo apt full-upgrade  
+2. Next, ensure that your Raspberry Pi firmware is up-to-date. Run the following command to see what firmware you’re running: $ sudo rpi-eeprom-update   If you see 6 December 2023 or a later date, proceed to the next step. If you see a date earlier than 6 December 2023, run the following command to open the Raspberry Pi Configuration CLI:  $ sudo raspi-config   Under Advanced Options > Bootloader Version, choose Latest. Then, exit raspi-config with Finish or the Escape key.  Run the following command to update your firmware to the latest version:  $ sudo rpi-eeprom-update -a   Then, reboot with sudo reboot. 
+3. Disconnect the Raspberry Pi from power before beginning installation.
+
+
+-----------
+
+https://github.com/cris-lab/vhs-client-rpi.git
+
+———————————
+
+sudo rpi-eeprom-update -a
+
+———————————
+
+To enable PCIe Gen 3.0 speeds, add the following line to /boot/firmware/config.txt:
+dtparam=pciex1_gen=3
+
+———————————
+
+sudo apt install hailo-all
+sudo apt install nginx
+
+———————————
+
+sudo mkdir /opt/vhs
+sudo chown -R kakashi:kakashi /opt/vhs/
+
+———————————
+
+sudo cp vhs.head.detection.service /etc/systemd/system/vhs.head.detection.service
+sudo cp vhs.gender.classification.service /etc/systemd/system/vhs.gender.classification.service
+sudo cp vhs.age.estimation.service /etc/systemd/system/vhs.age.estimation.service
+sudo cp vhs.sync.db.service /etc/systemd/system/vhs.sync.db.service
+
+sudo systemctl daemon-reload
+
+sudo systemctl enable vhs.age.estimation.service 
+sudo systemctl enable vhs.head.detection.service 
+sudo systemctl enable vhs.gender.classification.service 
+sudo systemctl enable vhs.sync.db.service
+
+sudo systemctl restart vhs.age.estimation.service
+sudo systemctl restart vhs.gender.classification.service
+sudo systemctl restart vhs.head.detection.service
+sudo systemctl restart vhs.sync.db.service
+
+
+————————————
+
+sudo mkdir /var/lib/vhs
+sudo mkdir /var/lib/vhs/detections
+sudo mkdir /var/lib/vhs/events
+
+sudo chown -R kakashi:kakashi /var/lib/vhs
+
+————————————
+
+curl -fsSL https://tailscale.com/install.sh | sh
+
+
+

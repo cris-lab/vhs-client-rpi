@@ -1,0 +1,21 @@
+{
+    "place":{
+        "code": "COD-TIENDITA",
+        "name": "Tiendita"
+    },
+    "input":{
+        "url": "rtsp://admin:Ca2mila1@172.16.11.8:554/Streaming/Channels/201",
+        "size": [2304, 1296],
+        "fps": 6
+    },
+    "deteting_zone": [
+        [260, 160],
+        [1300, 1200]
+    ],
+    "tracking_zone": [
+        [300, 50],
+        [740, 50],
+        [740, 590],
+        [300, 590]
+    ]
+}
