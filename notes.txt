@@ -26,6 +26,10 @@ dtparam=pciex1_gen=3
 sudo apt install hailo-all
 sudo apt install nginx
 
+sudo usermod -aG www-data kakashi
+sudo chmod -R 775 /var/www/html
+sudo chown -R www-data:www-data var/www/html
+
 ———————————
 
 sudo mkdir /opt/vhs
