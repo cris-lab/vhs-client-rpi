@@ -1,4 +1,7 @@
 
+Imagen: https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2024-11-19/2024-11-19-raspios-bookworm-arm64-lite.img.xz
+
+-----------
 
 1. First, ensure that your Raspberry Pi runs the latest software. Run the following command to update: $ sudo apt update && sudo apt full-upgrade  
 2. Next, ensure that your Raspberry Pi firmware is up-to-date. Run the following command to see what firmware you’re running: $ sudo rpi-eeprom-update   If you see 6 December 2023 or a later date, proceed to the next step. If you see a date earlier than 6 December 2023, run the following command to open the Raspberry Pi Configuration CLI:  $ sudo raspi-config   Under Advanced Options > Bootloader Version, choose Latest. Then, exit raspi-config with Finish or the Escape key.  Run the following command to update your firmware to the latest version:  $ sudo rpi-eeprom-update -a   Then, reboot with sudo reboot. 
