@@ -41,6 +41,7 @@ sudo cp vhs.head.detection.service /etc/systemd/system/vhs.head.detection.servic
 sudo cp vhs.gender.classification.service /etc/systemd/system/vhs.gender.classification.service
 sudo cp vhs.age.estimation.service /etc/systemd/system/vhs.age.estimation.service
 sudo cp vhs.sync.db.service /etc/systemd/system/vhs.sync.db.service
+sudo cp vhs.face.analyze.service /etc/systemd/system/vhs.face.analyze.service
 
 sudo systemctl daemon-reload
 
@@ -48,11 +49,14 @@ sudo systemctl enable vhs.age.estimation.service
 sudo systemctl enable vhs.head.detection.service 
 sudo systemctl enable vhs.gender.classification.service 
 sudo systemctl enable vhs.sync.db.service
+sudo systemctl enable vhs.face.analyze.service 
+
 
 sudo systemctl restart vhs.age.estimation.service
 sudo systemctl restart vhs.gender.classification.service
 sudo systemctl restart vhs.head.detection.service
 sudo systemctl restart vhs.sync.db.service
+sudo systemctl restart vhs.face.analyze.service 
 
 
 ————————————

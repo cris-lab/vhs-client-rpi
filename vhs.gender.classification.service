@@ -1,5 +1,5 @@
 [Unit]
-Description=VHS :: Gender Clasification Service 
+Description=VHS :: Gender Classification Service 
 After=network.target
 
 [Service]

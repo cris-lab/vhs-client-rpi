@@ -1,0 +1,15 @@
+[Unit]
+Description=VHS :: Face Analyze Service
+After=network.target
+
+[Service]
+ExecStart=/opt/vhs/env/bin/python3 /opt/vhs/src/analyze.service/start.py 
+WorkingDirectory=/opt/vhs/src/analyze.service
+User=kakashi
+Group=kakashi
+Restart=always
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

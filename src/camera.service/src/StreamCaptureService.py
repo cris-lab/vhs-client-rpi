@@ -3,27 +3,25 @@ import subprocess
 import threading
 import asyncio
 import cv2, os, json
-from dotenv import load_dotenv
-
-load_dotenv()
-
-FRAME_PER_SECOND = os.getenv('FRAME_PER_SECOND')
-FRAME_SIZE = os.getenv('FRAME_SIZE')
-STREAM_URL = os.getenv('STREAM_URL')
-
-print(f"FPS: {FRAME_PER_SECOND}, Frame size: {FRAME_SIZE}, Stream URL: {STREAM_URL}")
 
 class StreamCaptureService:
 
-    def __init__(self):
+    def __init__(self, stream_url=None, fps=None, dimensions=None):
+        
+        print("Inicializando StreamCaptureService")
+        print(f"Stream URL: {stream_url}")
+        print(f"FPS: {fps}")
+        print(f"Dimensiones: {dimensions}")
+        
+        self.stream_url = stream_url
         self.stop_event = threading.Event()
-        self.fps = int(FRAME_PER_SECOND)  # Aseguramos que FPS sea un entero
-        self.dimensions = tuple(map(int, FRAME_SIZE.split('x')))
+        self.fps = int(fps)  # Aseguramos que FPS sea un entero
+        self.dimensions = tuple(dimensions)
 
     async def start_stream(self, callback=None):
         """Inicia la captura del stream"""
         print("Iniciando captura de stream")
-        await self.capture_with_ffmpeg(STREAM_URL, callback)
+        await self.capture_with_ffmpeg(self.stream_url, callback)
 
     async def capture_with_ffmpeg(self, stream_url, callback=None):
         width, height = self.dimensions
@@ -78,10 +76,6 @@ class StreamCaptureService:
                     continue
 
                 frame = frame.reshape((height, width, 3))
-
-                # if not self.is_frame_valid(frame):
-                #     continue  # Omitir frames inválidos
-
                 if callback:
                     await callback(frame)
 

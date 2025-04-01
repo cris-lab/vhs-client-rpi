@@ -66,6 +66,7 @@ async def inference(file: UploadFile = File(...)):
         # Capturar y registrar el error
         logger.error(f"Error en la inferencia: {str(e)}")
         return JSONResponse(content={"error": str(e)}, status_code=500)
+        exit(0)
 
 if __name__ == "__main__":
     try:

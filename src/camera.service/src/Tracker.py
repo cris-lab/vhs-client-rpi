@@ -4,11 +4,9 @@ import math
 from typing import List, Dict
 
 class Tracker:
-    def __init__(self, distance_threshold=50, iou_threshold=0.3, min_threshold=0.1, max_threshold=1.2, max_lost_frames=5):
+    def __init__(self, min_threshold=0.1, max_threshold=1.2, max_lost_frames=5):
         self.tracks = {}  # {id: Track}
         self.next_id = 0
-        self.distance_threshold = distance_threshold
-        self.iou_threshold = iou_threshold
         self.min_threshold = min_threshold
         self.max_threshold = max_threshold
         self.max_lost_frames = max_lost_frames

@@ -2,6 +2,7 @@ import os
 import logging
 import numpy as np
 import json
+import shutil
 from PIL import Image
 from io import BytesIO
 
@@ -37,7 +38,7 @@ class AnalyzeDetectionsUseCase:
                     # Ruta de la imagen
                     image_path = os.path.join(self.directory, file_id + ".jpg")
                     
-                    if(data['eventType'] == "IN"):
+                    if(data['eventType'] == "in"):
                     
                         if not os.path.exists(image_path):
                             logging.warning(f"No se encontró la imagen {image_path}")
@@ -53,10 +54,15 @@ class AnalyzeDetectionsUseCase:
                     
                         # Realizar análisis de edad y género
                         try:
+                            
+                            response_age = await self.ageEstimationService.execute(frame)
+                            response_gender = await self.genderClassificationService.execute(frame)
+                            
                             analisis = {
-                                'age': await self.ageEstimationService.execute(image_path),
-                                'gender': await self.genderClassificationService.execute(image_path)
+                                'age': response_age['results'][0],
+                                'gender': response_gender['results']
                             }
+                            
                         except Exception as e:
                             logging.error(f"Error en la estimación de edad o clasificación de género para {image_path}: {e}")
                             continue
@@ -78,6 +84,11 @@ class AnalyzeDetectionsUseCase:
                     # Mover el archivo JSON a directory_out
                     shutil.move(updated_json_path, os.path.join(self.directory_out, file))
                     logging.info(f"Archivo JSON movido a {self.directory_out}")
+                    
+                    os.remove(file_path)
+                    logging.info(f"Archivo JSON original eliminado: {file_path}")
+                    
+                    
 
             except Exception as e:
                 logging.error(f"Error al procesar el archivo {file}: {e}")
