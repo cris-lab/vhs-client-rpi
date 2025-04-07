@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import logging
-from src.status import get_system_status
+from src.status import get_system_status, restart_service
 from src.config import get_config_from_json, update_config, check_cnn_url
 
 # Configurar logging
@@ -32,6 +32,21 @@ def get_thumbnail():
         logger.error(f"File {frame} not found.")
         return {"error": "File not found."}
 
+@app.post("/restart")
+async def restart_service_endpoint(request: Request, response:Response):
+    response.status_code = 400
+    payload = await request.json()
+    service_name = payload.get("service")
+    action = payload.get("action")
+    if service_name and action:
+        success = restart_service(action, service_name)
+        if success:
+            response.status_code = 200
+            return {"message": f"Service {service_name}:{action} successfully."}
+        
+        
+    return {"error": "Service name not provided."}
+    
 @app.get("/status")
 def get_status():
     return get_system_status()  # No necesitas JSONResponse()

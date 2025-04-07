@@ -4,6 +4,34 @@ import json
 import psutil
 import time
 
+services = [
+    #"vhs.bff.service",
+    "vhs.camera.service",
+    "vhs.head.detection.service",
+    "vhs.age.estimation.service",
+    "vhs.gender.classification.service",
+    "vhs.face.analyze.service",
+    "vhs.sync.db.service"
+]
+
+actions = [
+    "start",
+    "stop",
+    "restart"
+]
+
+def restart_service(action, service_name):
+    try:
+        if action not in actions:
+            raise ValueError(f"Action {action} is not recognized.")
+        if service_name not in services:
+            raise ValueError(f"Service {service_name} is not recognized.")
+        subprocess.run(["sudo", "systemctl", action, service_name], check=True)
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"Error restart_service: {e}")
+        return False
+
 # Función para obtener el estado del sistema
 def get_system_status():
     
@@ -13,8 +41,8 @@ def get_system_status():
         
         status_info = {
             "service_name": service_name,
-            "status": status_lines[0],
-            "details": status_lines[1:]
+            "status": status_lines[0] if status_lines else "Unknown",
+            "details": status_lines[1:] if len(status_lines) > 1 else []
         }
         return status_info
 
@@ -44,17 +72,15 @@ def get_system_status():
 
     def get_temperature():
         try:
-            temp = subprocess.getoutput("vcgencmd measure_temp")
-            return temp
+            temp_output = subprocess.getoutput("vcgencmd measure_temp")
+            return temp_output if "temp=" in temp_output else "Not available"
         except Exception as e:
             return str(e)
 
     def get_fan_status():
-        try:
-            fan_status = "ON"
-            return fan_status
-        except Exception as e:
-            return str(e)
+        return "ON"  # Modificar si hay un método real para obtener el estado del ventilador
+    
+    servicesStatus = [get_service_status(service) for service in services]
 
     status = {
         "memory": get_memory_status(),
@@ -62,13 +88,7 @@ def get_system_status():
         "cpu": get_cpu_status(),
         "temperature": get_temperature(),
         "fan_status": get_fan_status(),
-        "services": [
-            get_service_status("vhs.age.estimation.service"),
-            get_service_status("vhs.gender.classification.service"),
-            get_service_status("vhs.head.detection.service"),
-            get_service_status("vhs.face.analyze.service"),
-            get_service_status("vhs.sync.db.service")
-        ]
+        "services": servicesStatus
     }
     
     return status

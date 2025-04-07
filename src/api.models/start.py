@@ -3,7 +3,7 @@ import degirum as dg
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
-import json, uvicorn, io
+import json, uvicorn, io, os
 from PIL import Image
 import numpy as np
 import logging
@@ -40,6 +40,8 @@ model = dg.load_model(
     zoo_url=zoo_url
 )
 
+model.measure_time = True
+
 app = FastAPI()
 
 @app.post("/inference")
@@ -57,9 +59,12 @@ async def inference(file: UploadFile = File(...)):
         image = np.array(image)
         # Realizar la inferencia con el modelo
         result = model(image)  # Esto depende de cómo espera los datos el modelo
+        
+        print(model._time_stats.__str__())
         # Convertir los resultados a formato JSON
         result = jsonable_encoder(result._inference_results)
         # Devolver los resultados
+        #print(os.getenv('HAILO_MONITOR'))
         return JSONResponse(content={"results": result}, status_code=200)
 
     except Exception as e:
