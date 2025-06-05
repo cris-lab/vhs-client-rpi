@@ -2,7 +2,7 @@ import numpy as np
 import subprocess
 import threading
 import asyncio
-import cv2, os, json
+import cv2, os, json, yt_dlp
 
 class StreamCaptureService:
 
@@ -15,13 +15,49 @@ class StreamCaptureService:
         
         self.stream_url = stream_url
         self.stop_event = threading.Event()
-        self.fps = int(fps)  # Aseguramos que FPS sea un entero
+        self.fps = int(fps)
         self.dimensions = tuple(dimensions)
 
     async def start_stream(self, callback=None):
         """Inicia la captura del stream"""
         print("Iniciando captura de stream")
+
+        # Si es YouTube, obtener el stream_url real
+        if 'youtube.com' in self.stream_url or 'youtu.be' in self.stream_url:
+            print("Detectado enlace de YouTube, extrayendo URL de stream...")
+            self.stream_url = await self.extract_youtube_stream(self.stream_url)
+        else:
+            self.stream_url = self.stream_url
+
+        if not self.stream_url:
+            print("No se pudo obtener la URL de stream. Abortando.")
+            return
+        
         await self.capture_with_ffmpeg(self.stream_url, callback)
+
+    async def extract_youtube_stream(self, url):
+        """Usa yt-dlp para extraer la mejor URL de stream"""
+        ydl_opts = {
+            'quiet': True,
+            'format': 'best[ext=mp4]/best',
+            'noplaylist': True,
+        }
+
+        loop = asyncio.get_event_loop()
+        stream_url = None
+
+        def get_info():
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                return info.get('url')
+
+        try:
+            stream_url = await loop.run_in_executor(None, get_info)
+            print(f"URL extraída: {stream_url}")
+        except Exception as e:
+            print(f"Error al extraer URL de YouTube: {e}")
+
+        return stream_url
 
     async def capture_with_ffmpeg(self, stream_url, callback=None):
         width, height = self.dimensions

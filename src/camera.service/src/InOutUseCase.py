@@ -43,9 +43,13 @@ class InOutUseCase():
 
         # Usamos el tracker para actualizar las posiciones de los objetos detectados
         tracked_objects = self.tracker.update(detections, frame)
+        print(f"Tracked objects: {len(tracked_objects)}")
+        print(f"Tracked objects: {tracked_objects}")
         #print(f"Tracked objects: {len(tracked_objects)}")
         # Recorrer los objetos rastreados y etiquetarlos en el frame
         for tracked_obj in tracked_objects:
+            print(f"Detection type: {type(tracked_obj.detection)}")
+            print(f"Detection content: {tracked_obj.detection}")
             track_id = int(tracked_obj.track_id)
             bbox = tracked_obj.detection['bbox'] 
             #print(f"Track ID: {track_id}, BBox: {bbox}")

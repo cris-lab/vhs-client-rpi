@@ -22,7 +22,7 @@ class Tracker:
                 track.lost_frames += 1
             self._remove_lost_tracks()
             return tracks_output
-
+        
         # Extraer centroides y bounding boxes de las detecciones
         detection_centroids = [self._bbox_to_centroid(det['bbox']) for det in detections]
         detection_bboxes = [det['bbox'] for det in detections]
@@ -78,6 +78,8 @@ class Tracker:
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (253, 6, 105), 2)
                 cv2.putText(frame, f"ID: {track.track_id}", (x1, y1 - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (30, 245, 144), 2)
+
+        print('Finalizando Tracker')
 
         return tracks_output
 

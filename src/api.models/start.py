@@ -62,10 +62,18 @@ async def inference(file: UploadFile = File(...)):
         
         print(model._time_stats.__str__())
         # Convertir los resultados a formato JSON
-        result = jsonable_encoder(result._inference_results)
-        # Devolver los resultados
-        #print(os.getenv('HAILO_MONITOR'))
-        return JSONResponse(content={"results": result}, status_code=200)
+        # Acceder a los resultados
+        inference_results = getattr(result, '_inference_results', None)
+
+        # Si no hay resultados válidos
+        if not inference_results or inference_results == [{}]:
+            return JSONResponse(content={"results": [], "message": "No se detectaron objetos."}, status_code=200)
+
+        # Codificar resultados en JSON
+        result_json = jsonable_encoder(inference_results)
+
+        # Retornar resultados
+        return JSONResponse(content={"results": result_json}, status_code=200)
 
     except Exception as e:
         # Capturar y registrar el error

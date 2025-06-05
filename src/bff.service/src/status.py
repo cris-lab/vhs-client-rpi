@@ -4,9 +4,7 @@ import json
 import psutil
 import time
 
-services = [
-    #"vhs.bff.service",
-    "vhs.camera.service",
+other_services = [
     "vhs.head.detection.service",
     "vhs.age.estimation.service",
     "vhs.gender.classification.service",
@@ -24,8 +22,7 @@ def restart_service(action, service_name):
     try:
         if action not in actions:
             raise ValueError(f"Action {action} is not recognized.")
-        if service_name not in services:
-            raise ValueError(f"Service {service_name} is not recognized.")
+        # No necesitamos verificar si el servicio está en una lista fija ahora
         subprocess.run(["sudo", "systemctl", action, service_name], check=True)
         return True
     except subprocess.CalledProcessError as e:
@@ -34,11 +31,16 @@ def restart_service(action, service_name):
 
 # Función para obtener el estado del sistema
 def get_system_status():
-    
+
+    def get_vhs_camera_services():
+        output = subprocess.getoutput("systemctl list-units --plain --no-legend --no-pager 'vhs.camera@*.service'")
+        services = [line.strip().split()[0] for line in output.strip().split('\n') if line.strip()]
+        return services
+
     def get_service_status(service_name):
         status_output = subprocess.getoutput(f"systemctl status {service_name}")
         status_lines = status_output.splitlines()
-        
+
         status_info = {
             "service_name": service_name,
             "status": status_lines[0] if status_lines else "Unknown",
@@ -79,8 +81,10 @@ def get_system_status():
 
     def get_fan_status():
         return "ON"  # Modificar si hay un método real para obtener el estado del ventilador
-    
-    servicesStatus = [get_service_status(service) for service in services]
+
+    vhs_camera_services = get_vhs_camera_services()
+    all_services_to_check = vhs_camera_services + other_services
+    servicesStatus = [get_service_status(service) for service in all_services_to_check]
 
     status = {
         "memory": get_memory_status(),
@@ -90,5 +94,5 @@ def get_system_status():
         "fan_status": get_fan_status(),
         "services": servicesStatus
     }
-    
+
     return status

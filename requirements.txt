@@ -6,3 +6,5 @@ psutil
 opencv-python
 degirum
 psutil
+aiohttp
+yt_dlp
