@@ -1,0 +1,16 @@
+[Unit]
+Description=VHS :: Main Detection Service 
+After=network.target
+
+[Service]
+ExecStart=/opt/vhs/env/bin/python3 /opt/vhs/src/api.models/start.py --port 5000
+WorkingDirectory=/opt/vhs/src/api.models
+User=kakashi
+Group=kakashi
+Restart=always
+RestartSec=2s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

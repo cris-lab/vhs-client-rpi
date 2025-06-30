@@ -8,3 +8,4 @@ degirum
 psutil
 aiohttp
 yt_dlp
+sse-starlette

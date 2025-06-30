@@ -1,0 +1,35 @@
+{
+    "ConfigVersion": 6,
+    "Checksum": "051bf8362c299a1c28fbacdf032ea1058d415a7f6f64dc53e4f53263bef3c56e",
+    "DEVICE": [
+        {
+            "DeviceType": "HAILO8L",
+            "RuntimeAgent": "HAILORT",
+            "ThreadPackSize": 6,
+            "SupportedDeviceTypes": "HAILORT/HAILO8L, HAILORT/HAILO8"
+        }
+    ],
+    "PRE_PROCESS": [
+        {
+            "InputN": 1,
+            "InputH": 640,
+            "InputW": 640,
+            "InputC": 3,
+            "InputQuantEn": true
+        }
+    ],
+    "MODEL_PARAMETERS": [
+        {
+            "ModelPath": "yolo11n_visdrone_people_val--640x640_quant_hailort_multidevice_1.hef"
+        }
+    ],
+    "POST_PROCESS": [
+        {
+            "OutputPostprocessType": "DetectionYoloV8",
+            "OutputNumClasses": 2,
+            "LabelsPath": "labels_yolo11n_visdrone_people_val.json",
+            "OutputConfThreshold": 0.001,
+            "UseRegularNMS": false
+        }
+    ]
+}

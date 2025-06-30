@@ -9,7 +9,7 @@ import sys
 import json
 import asyncio
 import multiprocessing as mp
-import StreamCapture as vs
+from src.StreamCapture import StreamCapture as vs
 from dotenv import load_dotenv
 from types import SimpleNamespace
 from ByteTrack.yolox.tracker.byte_tracker import BYTETracker

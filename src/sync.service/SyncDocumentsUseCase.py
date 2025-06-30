@@ -1,9 +1,10 @@
 import os
 import json
 import logging
+import requests
 from pymongo import MongoClient, UpdateOne
-from dotenv import load_dotenv
 from pymongo.errors import PyMongoError
+from dotenv import load_dotenv
 
 # Configurar logging
 logging.basicConfig(
@@ -14,14 +15,14 @@ logging.basicConfig(
 load_dotenv()
 
 class SyncDocumentsUseCase:
-    
+
     def __init__(self, directory: str):
         self.directory = directory
-        
         self.mongo_uri = os.getenv("MONGO_URI")
         self.db_name = os.getenv("MONGO_DB_NAME")
         self.collection_name = 'events'
-        
+        self.api_url_base = os.getenv("API_URL_BASE", "http://127.0.0.1:8000/processed_events")  # puedes ponerlo en el .env
+
     def execute(self):
         logging.info("Iniciando sincronización de documentos...")
 
@@ -32,7 +33,9 @@ class SyncDocumentsUseCase:
 
         logging.info(f"Se encontraron {len(json_files)} archivos JSON en {self.directory}")
 
-        requests = []
+        requests_bulk = []
+        data_by_file = {}
+
         for file in json_files:
             file_path = os.path.join(self.directory, file)
             try:
@@ -43,8 +46,10 @@ class SyncDocumentsUseCase:
                         logging.warning(f"Archivo {file} omitido: No tiene 'eventId'")
                         continue
 
+                    data_by_file[file] = data  # lo usamos después para enviar vía HTTP
+
                     filter_query = {"eventId": data["eventId"]}
-                    requests.append(
+                    requests_bulk.append(
                         UpdateOne(
                             filter_query,
                             {"$set": data},
@@ -56,22 +61,39 @@ class SyncDocumentsUseCase:
             except Exception as e:
                 logging.error(f"Error al leer {file}: {e}")
 
-        if requests:
+        if requests_bulk:
             try:
                 client = MongoClient(self.mongo_uri)
                 db = client[self.db_name]
                 collection = db[self.collection_name]
 
-                collection.bulk_write(requests)
-                logging.info(f"Insertados/actualizados {len(requests)} documentos en la colección {self.collection_name}")
-                
+                collection.bulk_write(requests_bulk)
+                logging.info(f"Insertados/actualizados {len(requests_bulk)} documentos en la colección {self.collection_name}")
+
+                # Enviar a la API y eliminar archivos
+                for file, data in data_by_file.items():
+                    camera_id = data.get("camera", {}).get("id")
+                    if not camera_id:
+                        logging.warning(f"No se encontró camera.id en {file}")
+                        continue
+
+                    try:
+                        response = requests.post(
+                            f"{self.api_url_base}/{camera_id}",
+                            json=data,
+                            timeout=5
+                        )
+                        if response.status_code == 200:
+                            logging.info(f"Evento enviado correctamente a la API para cámara {camera_id}")
+                            os.remove(os.path.join(self.directory, file))
+                            logging.info(f"Archivo {file} eliminado.")
+                        else:
+                            logging.error(f"Error al enviar {file} a la API. Status: {response.status_code}")
+                    except Exception as e:
+                        logging.error(f"Error al enviar {file} a la API: {e}")
+
                 client.close()
-                
-                for file in json_files:
-                    file_path = os.path.join(self.directory, file)
-                    os.remove(file_path)
-                    logging.info(f"Archivo {file} eliminado.")
-                
+
             except PyMongoError as e:
                 logging.error(f"Error de conexión con MongoDB: {e}")
         else:

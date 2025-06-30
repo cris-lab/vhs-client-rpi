@@ -1,0 +1,16 @@
+[Unit]
+Description=VHS :: Gender Classification Service 
+After=network.target
+
+[Service]
+ExecStart=/opt/vhs/env/bin/python3 /opt/vhs/src/api.models/start.py --port 5001 --width 256 --height 256 --model yolov8n_relu6_fairface_gender--256x256_quant_hailort_hailo8l_1
+WorkingDirectory=/opt/vhs/src/api.models
+User=kakashi
+Group=kakashi
+Restart=always
+RestartSec=2s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
