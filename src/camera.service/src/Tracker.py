@@ -72,12 +72,12 @@ class Tracker:
         # Generar salida de tracks
         for track in self.tracks.values():
             tracks_output.append(track)
-            if frame is not None:
-                # Dibujar información del track en el frame
-                x1, y1, x2, y2 = map(int, track.detection['bbox'])
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (253, 6, 105), 2)
-                cv2.putText(frame, f"ID: {track.track_id}", (x1, y1 - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (30, 245, 144), 2)
+            # if frame is not None:
+            #     # Dibujar información del track en el frame
+            #     x1, y1, x2, y2 = map(int, track.detection['bbox'])
+            #     cv2.rectangle(frame, (x1, y1), (x2, y2), (253, 6, 105), 2)
+            #     cv2.putText(frame, f"ID: {track.track_id}", (x1, y1 - 10),
+            #                 cv2.FONT_HERSHEY_SIMPLEX, 1, (30, 245, 144), 2)
 
         print('Finalizando Tracker')
 

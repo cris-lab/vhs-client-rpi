@@ -10,8 +10,9 @@ class InOutUseCase():
     
     tracked_objects_state = {} # Para almacenar el estado de cada objeto
     
-    def __init__(self, tracker=None, cross_line=None, centroid_orientation=None, counter_interpolation=0):
+    def __init__(self, stream=None, tracker=None, cross_line=None, centroid_orientation=None, counter_interpolation=0):
         
+        self.stream = stream
         self.tracker = tracker
         self.cross_line = cross_line  # Línea de cruce, debe ser una lista de 2 puntos (x1, y1), (x2, y2)
         self.centroid_orientation = centroid_orientation
@@ -23,18 +24,18 @@ class InOutUseCase():
         
         print("Ejecutando In Out Use Case")
 
-        label = Label(
-            text=f"IN: {self.counter['IN']} | OUT: {self.counter['OUT']}",
-            font=cv2.FONT_HERSHEY_SIMPLEX,
-            font_scale=0.7,
-            color=(255, 255, 255),
-            thickness=2,
-            padding=10,
-            background_color=(253, 6, 105),
-            position=(30, 30)
-        )
+        # label = Label(
+        #     text=f"IN: {self.counter['IN']} | OUT: {self.counter['OUT']}",
+        #     font=cv2.FONT_HERSHEY_SIMPLEX,
+        #     font_scale=0.7,
+        #     color=(255, 255, 255),
+        #     thickness=2,
+        #     padding=10,
+        #     background_color=(253, 6, 105),
+        #     position=(30, 30)
+        # )
         
-        label.draw(frame)
+        # label.draw(frame)
         # Inicializar el resumen fuera del bucle de áreas
         timestamp = time.time()
         # Dibujar la línea de cruce
@@ -44,33 +45,38 @@ class InOutUseCase():
         # Usamos el tracker para actualizar las posiciones de los objetos detectados
         tracked_objects = self.tracker.update(detections, frame)
         print(f"Tracked objects: {len(tracked_objects)}")
-        print(f"Tracked objects: {tracked_objects}")
+        #print(f"Tracked objects: {tracked_objects}")
         #print(f"Tracked objects: {len(tracked_objects)}")
         # Recorrer los objetos rastreados y etiquetarlos en el frame
         for tracked_obj in tracked_objects:
-            print(f"Detection type: {type(tracked_obj.detection)}")
-            print(f"Detection content: {tracked_obj.detection}")
+            # print(f"Detection type: {type(tracked_obj.detection)}")
+            # print(f"Detection content: {tracked_obj.detection}")
             track_id = int(tracked_obj.track_id)
             bbox = tracked_obj.detection['bbox'] 
             #print(f"Track ID: {track_id}, BBox: {bbox}")
             x1, y1, x2, y2 = map(int, bbox)
             center = self.get_centroid(x1, y1, x2, y2)
             
-            cv2.circle(frame, center, 3, (80, 30, 245), -1)
+            #cv2.circle(frame, center, 3, (80, 30, 245), -1)
 
             # Verificar si el objeto ha cruzado la línea de cruce
             if self.cross_line:
                 crossing = self.check_crossing(track_id, center)
                 if crossing['has_crossed']:
                     Event(
+                        camera={
+                            "id":   self.stream['id'],
+                            "name": self.stream['name'],
+                            "code": self.stream['code']
+                        },
                         place=place,
                         object_type=tracked_obj.detection['label'].lower(), 
                         event_type=crossing["direction"].lower()
                     ).save(frame)
                     
-        cv2.line(frame, tuple(self.cross_line[0]), tuple(self.cross_line[1]), (30, 245, 144), 2)
+        #cv2.line(frame, tuple(self.cross_line[0]), tuple(self.cross_line[1]), (30, 245, 144), 2)
         
-        return frame
+        return frame, tracked_objects
                     
         
     def get_centroid(self, x1, y1, x2, y2):

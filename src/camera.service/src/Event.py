@@ -6,11 +6,13 @@ import cv2  # Usado para guardar el frame como imagen
 class Event:
     
     def __init__(self, 
+        camera=None,
         place=None,
         event_type='detection', 
         description='',
         object_type='person'
     ):
+        self.camera         = camera
         self.place          = place
         self.eventId        = uuid.uuid4()
         self.eventType      = event_type
@@ -19,12 +21,14 @@ class Event:
       
     def save(self, frame):
         # Guardar el frame como imagen con el nombre del eventId.jpg
-        image_filename = f"/var/lib/vhs//detections/{self.eventId}.jpg"
+        image_filename = f"/var/lib/vhs/detections/{self.eventId}.jpg"
         cv2.imwrite(image_filename, frame)  # Usamos OpenCV para guardar la imagen
         print(f"Frame guardado como {image_filename}")
         
         # Crear un diccionario con los datos de la clase para el archivo JSON
         event_data = {
+            "useCase": "in-out",
+            "camera": self.camera,
             "place": self.place,
             "eventId": str(self.eventId),
             "eventType": self.eventType,
