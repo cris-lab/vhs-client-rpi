@@ -5,10 +5,7 @@ import psutil
 import time
 
 other_services = [
-    "vhs.head.detection.service",
-    "vhs.age.estimation.service",
-    "vhs.gender.classification.service",
-    "vhs.face.analyze.service",
+    "vhs.detection.service",
     "vhs.sync.db.service"
 ]
 

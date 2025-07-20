@@ -1,0 +1,15 @@
+[Unit]
+Description=VHS :: Camera Stream Service - %i
+After=network.target
+
+[Service]
+ExecStart=/opt/vhs/env/bin/python3 /opt/vhs/src/camera.service/start.py --stream-id %i
+WorkingDirectory=/opt/vhs/src/camera.service
+User=kakashi
+Group=kakashi
+Restart=5s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

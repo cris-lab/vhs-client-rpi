@@ -25,6 +25,18 @@ app.add_middleware(
     allow_headers=["*"],  # Permite todas las cabeceras
 )
 
+FILE_PATH = '/var/lib/vhs'
+DETECTIONS_BASE_DIR = "/opt/vhs/storage/detections"
+
+# @app.get("/thumbnail/{stream_id}")
+# async def get_thumbnail(stream_id: str):
+#     thumbnail_path = _get_thumbnail_path(stream_id, FILE_PATH)
+
+#     if not os.path.exists(thumbnail_path):
+#         raise HTTPException(status_code=404, detail="Thumbnail no encontrado.")
+
+#     return StreamingResponse(open(thumbnail_path, "rb"), media_type="image/jpeg")
+
 @app.get("/models")
 async def get_models():
     models_dir = "/opt/vhs/src/api.models/models"
@@ -35,7 +47,6 @@ async def get_models():
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Models directory not found")
 
-    
 @app.post("/restart")
 async def restart_service_endpoint(request: Request, response:Response):
     response.status_code = 400
@@ -59,14 +70,9 @@ def get_config():
     return get_config_from_json()
 
 @app.put("/settings/{stream_id}")
-async def set_config(request: Request):
+async def set_config(request: Request, stream_id: str):
     payload = await request.json()
     return update_stream_settings(stream_id, payload)
-
-@app.post("/settings/check_cnn_url")
-async def check(request: Request):
-    payload = await request.json()
-    return check_cnn_url(payload)
 
 @app.post("/processed_stream/{stream_id}")
 async def receive_processed_frame(stream_id: str, request: Request):
@@ -93,8 +99,7 @@ async def websocket_endpoint(websocket: WebSocket, stream_id: str):
     finally:
         del active_websockets[stream_id]
      
-# Definir el tamaño del buffer (por ejemplo, 100 eventos)
-BUFFER_SIZE = 100
+BUFFER_SIZE = 1
 events_buffer = {} # Almacenamos los buffers por stream_id     
         
 @app.post('/processed_events/{stream_id}')
@@ -139,7 +144,80 @@ async def get_events(stream_id: str):
         event_stream(),
         headers={"Access-Control-Allow-Origin": "*"}
     )
+  
+  
+  
+@app.get("/detections")
+async def list_detections(request: Request): # Añadimos 'request' para obtener la URL base
+    """
+    Lista todas las detecciones de personas guardadas en la estructura UUID/data.json.
+    Retorna un array de objetos JSON, donde cada objeto contiene los datos de una persona detectada.
+    Incluye URLs para las imágenes de los ROIs.
+    """
+    detections = []
+    if not os.path.exists(DETECTIONS_BASE_DIR):
+        logger.warning(f"Directorio de detecciones no encontrado: {DETECTIONS_BASE_DIR}")
+        return {"detections": []}
 
-    
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    try:
+        # Obtener la URL base de la aplicación para construir los enlaces de las imágenes
+        # Esto considera si estás usando un proxy inverso o un puerto específico
+        base_url = str(request.base_url).rstrip('/')
+
+        # Recorrer cada directorio que representa un UUID de persona
+        for person_uuid_dir in os.listdir(DETECTIONS_BASE_DIR):
+            person_dir_path = os.path.join(DETECTIONS_BASE_DIR, person_uuid_dir)
+
+            # Asegurarse de que sea un directorio válido (un UUID)
+            if os.path.isdir(person_dir_path):
+                data_json_path = os.path.join(person_dir_path, 'data.json')
+                images_dir_path = os.path.join(person_dir_path, 'images')
+
+                if os.path.exists(data_json_path):
+                    try:
+                        with open(data_json_path, 'r') as f:
+                            person_data = json.load(f)
+
+                            # Añadir un nodo 'image_urls' con los enlaces a las imágenes
+                            image_urls = []
+                            if os.path.exists(images_dir_path) and os.path.isdir(images_dir_path):
+                                for image_filename in os.listdir(images_dir_path):
+                                    # Filtrar solo archivos de imagen si es necesario (ej. .jpg, .png)
+                                    if image_filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+                                        # Construir la URL completa para cada imagen
+                                        # Ej: http://localhost:8000/detections/UUID/images/roi_timestamp.jpg
+                                        image_url = f"{base_url}/detections/{person_uuid_dir}/images/{image_filename}"
+                                        image_urls.append(image_url)
+                            
+                            # Opcional: Podrías ordenar las imágenes por timestamp si el nombre del archivo lo permite
+                            # image_urls.sort() 
+
+                            person_data['image_urls'] = image_urls
+                            detections.append(person_data)
+
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Error decodificando JSON en {data_json_path}: {e}")
+                    except Exception as e:
+                        logger.error(f"Error leyendo o procesando {data_json_path}: {e}")
+                else:
+                    logger.warning(f"No se encontró data.json en el directorio: {person_dir_path}")
+
+    except Exception as e:
+        logger.error(f"Error al listar detecciones en {DETECTIONS_BASE_DIR}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al procesar el directorio de detecciones: {e}")
+
+    return {"detections": detections}
+
+
+@app.get("/detections/{person_uuid}/images/{image_filename}")
+async def get_detection_image(person_uuid: str, image_filename: str):
+    """
+    Sirve una imagen de detección específica (ROI) dado el UUID de la persona
+    y el nombre del archivo de la imagen.
+    """
+    image_path = os.path.join(DETECTIONS_BASE_DIR, person_uuid, 'images', image_filename)
+
+    if not os.path.exists(image_path):
+        raise HTTPException(status_code=404, detail="Imagen de detección no encontrada.")
+
+    return StreamingResponse(open(image_path, "rb"), media_type="image/jpeg")

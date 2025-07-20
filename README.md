@@ -8,13 +8,6 @@
    MONGO_URI=
    MONGO_DB_NAME=
    ```
-
-2. Una vez creado el archivo, reinicia el servicio con el siguiente comando:
-
-   ```bash
-   sudo systemctl restart vhs.sync.db.service
-   ```
-
 ---
 
 ## Configuración de VPN con Tailscale

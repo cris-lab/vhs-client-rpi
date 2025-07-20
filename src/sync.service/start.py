@@ -11,7 +11,7 @@ logging.basicConfig(
 if __name__ == "__main__":
     
     logging.info("Iniciando servicio de sincronización de documentos")
-    sync_use_case = SyncDocumentsUseCase("/var/lib/vhs/events")
+    sync_use_case = SyncDocumentsUseCase("/var/lib/vhs/storage/detections")
     
     while True:
         sync_use_case.execute()
