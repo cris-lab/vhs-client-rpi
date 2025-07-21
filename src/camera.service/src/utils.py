@@ -5,7 +5,7 @@ import cv2
 import io
 from PIL import Image
 
-def crop_and_resize_roi_padded(frame, roi_polygon_points=None, target_size=(640, 640), debug=False):
+def crop_and_resize_roi_padded(frame, roi_polygon_points=None, target_size=(640, 640), debug=True):
     
     if debug:
         print(f"\n--- DEBUG: Inicia crop_and_resize_roi_padded ---")
