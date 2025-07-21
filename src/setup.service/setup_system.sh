@@ -8,7 +8,7 @@ echo "Iniciando script de configuración: $(date)"
 echo "==================================================="
 
 # Variables principales
-PENDRIVE_ENV="/mnt/usb/boot.env"
+PENDRIVE_ENV="/mnt/usb/vhs/boot.env"
 DEST_ENV="/opt/vhs/src/setup.service/.env"
 
 # --- Validación de archivo .env del pendrive ---
