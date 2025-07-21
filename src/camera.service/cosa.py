@@ -21,10 +21,11 @@ config              = vhs_utils.load_config(os.path.join('/var/lib/vhs', 'config
 if stream_id is None:
     stream_config       = next((s for s in config.get('streams', []) if s['id'] == stream_id), None)
 else:
-    stream_config       = config.get('streams', [])[0]  # Default to the first stream if no ID is provided
+    stream_config       = config.get('streams',[])[0]
+
 
 if stream_config is None:
-    raise ValueError(f"No se encontró la transmisión con ID {stream_id}")
+    raise ValueError(f"No se encontró ningún stream con el ID: {stream_id}")
 
 video_source_url    = stream_config['input']['url']
 frame_processor     = FrameProcessor(config, stream_config, stream_config.get('tracker', {}).get('class_list', ['person', 'head']))
@@ -35,12 +36,6 @@ if __name__ == "__main__":
 
     try:
         
-        if "youtube.com" in video_source_url or "youtu.be" in video_source_url:
-            video = pafy.new(video_source_url)
-            video_source_url = video.getbest(preftype="mp4").url
-            print(f"URL resuelta para streaming directo: {video_source_url}")
-
-
         with open_video_stream(video_source_url) as stream:
             
             print("Stream de video abierto exitosamente.")
