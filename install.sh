@@ -7,14 +7,25 @@ sudo apt update && sudo apt full-upgrade -y
 
 # 2. Actualizar firmware si es necesario
 echo "🧬 Verificando versión de firmware..."
-FIRMWARE_DATE=$(sudo rpi-eeprom-update | grep -oP '\d{1,2} \w+ \d{4}')
-if [[ $(date -d "$FIRMWARE_DATE" +%s) -lt $(date -d "6 December 2023" +%s) ]]; then
+# Extraer la línea con la fecha
+FIRMWARE_LINE=$(sudo rpi-eeprom-update | grep "CURRENT:")
+echo "FIRMWARE_LINE: $FIRMWARE_LINE"
+
+# Extraer la fecha completa
+FIRMWARE_DATE=$(echo "$FIRMWARE_LINE" | cut -d':' -f2 | cut -d'(' -f1 | xargs)
+echo "FIRMWARE_DATE: $FIRMWARE_DATE"
+
+# Validar si la fecha es menor al mínimo requerido
+MIN_DATE="6 December 2023"
+
+if [[ $(date -d "$FIRMWARE_DATE" +%s) -lt $(date -d "$MIN_DATE" +%s) ]]; then
   echo "⚠️ Firmware desactualizado. Actualizando..."
   sudo raspi-config nonint do_bootloader_update E1
   sudo rpi-eeprom-update -a
   sudo reboot
+else
+  echo "✅ Firmware actualizado: $FIRMWARE_DATE"
 fi
-
 # 3. Instalar TightVNC Server y XFCE4
 sudo apt install -y tightvncserver xfce4 xfce4-clipman mousepad git hailo-all nginx
 
