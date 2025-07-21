@@ -1,0 +1,27 @@
+{
+    "id": "",
+    "code": "",
+    "name": "",
+    "input": {
+        "url": ""
+    },
+    "roi": {
+        "enabled": false,
+        "points": []
+    },
+    "zones": [
+        {
+            "name": "Puerta",
+            "points": []
+        }
+    ],
+    "tracker": {
+        "class_list": [
+            "head"
+        ],
+        "track_thresh": 0.3,
+        "track_buffer": 20,
+        "match_thresh": 0.85,
+        "trail_depth": 20
+    }
+}
