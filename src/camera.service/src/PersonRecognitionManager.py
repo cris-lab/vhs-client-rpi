@@ -246,40 +246,32 @@ class PersonRecognitionManager:
         tracks_to_delete = []
 
         for track_id in list(self.lost_tracks_buffer.keys()):
-            
             track_data = self.lost_tracks_buffer[track_id]
             lost_since = track_data['lost_since']
             time_difference = now - lost_since
             person_uuid = track_data.get("uuid", "unknown")
 
-            trails_dict = track_data.get('trails', {})
+            # Ahora usa 'trails' como lista, no como dict
+            trails = track_data.get('trails', [])
             track_data['duration_tracked'] = track_data['last_seen'] - track_data['first_appearance_time']
 
-            if trails_dict and track_data.get('origin_id') in trails_dict:
-                track_data['total_movement'] = self.calculate_trail_movement(
-                    trails_dict[track_data.get('origin_id')]
-                )
-                
-                positions = trails_dict[track_data.get('origin_id')]
-                # Nuevo: resumen de posiciones
+            if trails and len(trails) > 1:
+                track_data['total_movement'] = self.calculate_trail_movement(trails)
+                # Resumen
+                start_x, start_y = self.bbox_center(trails[0])
+                end_x, end_y = self.bbox_center(trails[-1])
                 track_data['positions_summary'] = {
-                    "start": positions[0],
-                    "end": positions[-1],
-                    "count": len(positions)
+                    "start_bbox": trails[0],
+                    "end_bbox": trails[-1],
+                    "start": [start_x, start_y],
+                    "end": [end_x, end_y],
+                    "count": len(trails)
                 }
-
-                # Nuevo: análisis de dirección (asumiendo 640x640)
-                start_x, start_y = self.bbox_center(positions[0])
-                end_x, end_y = self.bbox_center(positions[-1])
-
                 start_zone = self.map_to_grid_zone(start_x, start_y)
                 end_zone = self.map_to_grid_zone(end_x, end_y)
-
                 track_data['entry_zone'] = start_zone
                 track_data['exit_zone'] = end_zone
-
                 track_data['direction'] = self.estimate_direction(start_x, start_y, end_x, end_y)
-
             else:
                 track_data['total_movement'] = 0
                 track_data['positions_summary'] = None
@@ -302,10 +294,11 @@ class PersonRecognitionManager:
                 if not self.is_false_positive(track_data):
                     track_data['valid_track'] = True
                     track_data['event_log'].append("finalized")
+                    self.save_person_data_to_json(track_data)
                 else:
                     track_data['valid_track'] = False
                     track_data['event_log'].append("discarded_fp")
-                self.save_person_data_to_json(track_data)
+                
                 tracks_to_delete.append(track_id)
 
         for track_id in tracks_to_delete:
