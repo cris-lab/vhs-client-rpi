@@ -78,5 +78,3 @@ pip install -r /opt/vhs/requirements.txt
 deactivate
 
 echo "✅ Instalación finalizada. Reinicia con: sudo reboot"
-
-echo "fin
