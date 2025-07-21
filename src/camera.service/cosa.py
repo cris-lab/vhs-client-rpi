@@ -18,7 +18,7 @@ stream_id           = args.stream_id
 
 config              = vhs_utils.load_config(os.path.join('/var/lib/vhs', 'config.json'))
 
-if stream_id is None:
+if stream_id:
     stream_config       = next((s for s in config.get('streams', []) if s['id'] == stream_id), None)
 else:
     stream_config       = config.get('streams',[])[0]
