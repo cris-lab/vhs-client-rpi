@@ -15,6 +15,14 @@ if [[ $(date -d "$FIRMWARE_DATE" +%s) -lt $(date -d "6 December 2023" +%s) ]]; t
   sudo reboot
 fi
 
+# 2. Instalar TightVNC Server
+sudo apt install tightvncserver
+
+# 2. Instalar XFCE4
+sudo apt install xfce4
+chmod +x ~/.vnc/xstartup
+
+
 # 3. Configurar PCIe Gen 3
 echo "⚙️ Configurando PCIe Gen3..."
 sudo sed -i '/^dtparam=pciex1_gen=/d' /boot/firmware/config.txt
