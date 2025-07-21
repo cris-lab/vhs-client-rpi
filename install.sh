@@ -40,6 +40,7 @@ echo "📦 Clonando o actualizando VHS..."
 if [ ! -d "/opt/vhs/.git" ]; then
   sudo git clone https://github.com/cris-lab/vhs-client-rpi.git /opt/vhs
 else
+  sudo git config --global --add safe.directory /opt/vhs
   cd /opt/vhs
   sudo git pull
 fi
