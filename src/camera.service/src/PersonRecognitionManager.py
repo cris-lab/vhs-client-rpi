@@ -58,7 +58,7 @@ class PersonRecognitionManager:
                     "total_movement": 0,
                     "first_position": track.get('bbox', []),
                     "last_position": track.get('bbox', []),
-                    "positions": [track.get('bbox', [])],   # Downsampled trajectory
+                    #"positions": [track.get('bbox', [])],   # Downsampled trajectory
                     "first_appearance_time": now,
                     "last_seen": now,
                     "lost_since": None,
@@ -81,10 +81,12 @@ class PersonRecognitionManager:
                 info['last_position'] = track.get('bbox', [])
                 info['trails'] = result.trails[track_id]
                 info['frames_seen'] += 1
-                info['positions'].append(track.get('bbox', []))
+                #info['positions'].append(track.get('bbox', []))
                 info['duration_tracked'] = info['last_seen'] - info['first_appearance_time']
                 info['lost_since'] = None
 
+            print(f"[DEBUG] Trails Format: {result.trails[track_id][0]} Length: {len(result.trails[track_id])}")
+            
             self.process_faces(frame, track, track_id, face_detections)
             tracker_results.append(track)
 
@@ -239,6 +241,7 @@ class PersonRecognitionManager:
         tracks_to_delete = []
 
         for track_id in list(self.lost_tracks_buffer.keys()):
+            
             track_data = self.lost_tracks_buffer[track_id]
             lost_since = track_data['lost_since']
             time_difference = now - lost_since
@@ -326,8 +329,6 @@ class PersonRecognitionManager:
         json_filename = os.path.join(self.base_storage_dir, f"{person_uuid}.json")
         data_to_save = person_data.copy()
         # Quitar trails para no llenar el JSON
-        if 'trails' in data_to_save:
-            del data_to_save['trails']
         try:
             with open(json_filename, 'w') as f:
                 json.dump(data_to_save, f, indent=4)
