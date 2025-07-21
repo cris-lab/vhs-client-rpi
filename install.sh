@@ -68,3 +68,5 @@ deactivate
 chmod +x ~/.vnc/xstartup
 
 echo "✅ Instalación finalizada. Reinicia con: sudo reboot"
+
+echo "fin
