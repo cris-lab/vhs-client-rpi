@@ -7,4 +7,3 @@ __pycache__
 output.jpg
 gstshark*
 storage/detections
-models/*
