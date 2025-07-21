@@ -27,6 +27,10 @@ echo "dtparam=pciex1_gen=3" | sudo tee -a /boot/firmware/config.txt
 sudo apt install xfce4
 chmod +x ~/.vnc/xstartup
 
+sudo apt install xfce4-clipman mousepad
+xfce4-clipman &
+mousepad &
+
 #install git
 sudo apt install git
 
