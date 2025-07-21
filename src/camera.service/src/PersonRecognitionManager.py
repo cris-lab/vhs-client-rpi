@@ -67,7 +67,7 @@ class PersonRecognitionManager:
                     "best_roi_path": None,
                     "valid_track": True,        # Cambia si se descarta por FP
                     "event_log": ["detected"],
-                    "trails": result.trails
+                    "trails": result.trails[track_id]
                 }
                 if track_id in self.lost_tracks_buffer:
                     recovered_data = self.lost_tracks_buffer.pop(track_id)
@@ -79,7 +79,7 @@ class PersonRecognitionManager:
                 info = self.person_data[track_id]
                 info['last_seen'] = now
                 info['last_position'] = track.get('bbox', [])
-                info['trails'] = result.trails
+                info['trails'] = result.trails[track_id]
                 info['frames_seen'] += 1
                 info['positions'].append(track.get('bbox', []))
                 info['duration_tracked'] = info['last_seen'] - info['first_appearance_time']
