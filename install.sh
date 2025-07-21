@@ -15,60 +15,56 @@ if [[ $(date -d "$FIRMWARE_DATE" +%s) -lt $(date -d "6 December 2023" +%s) ]]; t
   sudo reboot
 fi
 
-# 2. Instalar TightVNC Server
-sudo apt install tightvncserver
+# 3. Instalar TightVNC Server y XFCE4
+sudo apt install -y tightvncserver xfce4 xfce4-clipman mousepad git hailo-all nginx
 
-# 3. Configurar PCIe Gen 3
-echo "⚙️ Configurando PCIe Gen3..."
-sudo sed -i '/^dtparam=pciex1_gen=/d' /boot/firmware/config.txt
-echo "dtparam=pciex1_gen=3" | sudo tee -a /boot/firmware/config.txt
+# 4. Lanzar clipboard y editor solo si está en entorno gráfico (opcional)
+if [ "$DISPLAY" ]; then
+  xfce4-clipman &
+  mousepad &
+fi
 
-# 2. Instalar XFCE4
-sudo apt install xfce4
-chmod +x ~/.vnc/xstartup
+# 5. Clonar o actualizar repositorio
+echo "📦 Clonando o actualizando VHS..."
+if [ ! -d "/opt/vhs/.git" ]; then
+  sudo git clone https://github.com/cris-lab/vhs-client-rpi.git /opt/vhs
+else
+  cd /opt/vhs
+  sudo git pull
+fi
 
-sudo apt install xfce4-clipman mousepad
-xfce4-clipman &
-mousepad &
+# 6. Crear carpetas necesarias
+echo "📁 Creando carpetas de datos..."
+sudo mkdir -p /opt/vhs/storage/detections
+sudo mkdir -p /var/lib/vhs/detections
 
-#install git
-sudo apt install git
-
-# 4. Clonar repositorio
-echo "📦 Clonando VHS..."
-cd /opt
-sudo git clone https://github.com/cris-lab/vhs-client-rpi.git vhs
-
-mkdir -P /opt/vhs/storage/detections
-
+# 7. Permisos
 sudo chown -R kakashi:kakashi /opt/vhs
+sudo chown -R kakashi:kakashi /var/lib/vhs
 
-# 5. Instalar dependencias
-echo "📥 Instalando paquetes necesarios..."
-sudo apt install -y hailo-all nginx
-
-# 6. Configurar permisos en NGINX
+# 8. Configurar NGINX permisos
 echo "🔧 Configurando permisos NGINX..."
 sudo usermod -aG www-data kakashi
 sudo chmod -R 775 /var/www/html
 sudo chown -R www-data:www-data /var/www/html
 
-# 7. Crear carpetas necesarias
-echo "📁 Creando carpetas de datos..."
-sudo mkdir -p /var/lib/vhs/detections
-sudo chown -R kakashi:kakashi /var/lib/vhs
-
-
-# 9. Instalar Tailscale
+# 9. Instalar Tailscale si no existe
 echo "🌐 Instalando Tailscale..."
-curl -fsSL https://tailscale.com/install.sh | sh
+if ! command -v tailscale &>/dev/null; then
+  curl -fsSL https://tailscale.com/install.sh | sh
+fi
 
+# 10. Crear y usar virtualenv
+if [ ! -d "/opt/vhs/env" ]; then
+  python3 -m venv /opt/vhs/env
+fi
 
-python3 -m venv /opt/vhs/env
 source /opt/vhs/env/bin/activate
 pip install --upgrade pip
 pip install -r /opt/vhs/requirements.txt
-
 deactivate
+
+# 11. Asegura permisos en xstartup
+chmod +x ~/.vnc/xstartup
 
 echo "✅ Instalación finalizada. Reinicia con: sudo reboot"
