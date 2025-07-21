@@ -10,16 +10,18 @@ from degirum_tools.video_support import (
     video_source,
 )
 
-default_stram_id="ce078f8b-5201-49b8-a87d-5816dbfcf101"
-
 parser              = argparse.ArgumentParser(description='VHS Camera Stream Service')
-parser.add_argument('--stream-id', type=str, required=False, default=default_stram_id, help='ID del stream a procesar')
+parser.add_argument('--stream-id', type=str, required=False, help='ID del stream a procesar')
 
 args                = parser.parse_args()
 stream_id           = args.stream_id
 
 config              = vhs_utils.load_config(os.path.join('/var/lib/vhs', 'config.json'))
-stream_config       = next((s for s in config.get('streams', []) if s['id'] == stream_id), None)
+
+if stream_id is None:
+    stream_config       = next((s for s in config.get('streams', []) if s['id'] == stream_id), None)
+else:
+    stream_config       = config.get('streams', [])[0]  # Default to the first stream if no ID is provided
 
 if stream_config is None:
     raise ValueError(f"No se encontró la transmisión con ID {stream_id}")
