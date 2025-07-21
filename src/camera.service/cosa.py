@@ -50,7 +50,7 @@ if __name__ == "__main__":
    
             for frame in video_source(stream, fps=30.00):
 
-                roi_frame = vhs_utils.crop_and_resize_roi_padded(frame, stream_config.get('roi', []), target_size=(640, 640))
+                roi_frame = vhs_utils.crop_and_resize_roi_padded(frame, stream_config.get('roi', None), target_size=(640, 640))
                 processed_frame, _ = frame_processor.execute(roi_frame)
                 
                 cv2.imshow("RTSP Stream", processed_frame)

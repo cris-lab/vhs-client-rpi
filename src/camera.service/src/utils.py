@@ -5,16 +5,16 @@ import cv2
 import io
 from PIL import Image
 
-def crop_and_resize_roi_padded(frame, roi_polygon_points=None, target_size=(640, 640), debug=True):
+def crop_and_resize_roi_padded(frame, roi={'enabled':False, 'points': []}, target_size=(640, 640), debug=True):
     
     if debug:
         print(f"\n--- DEBUG: Inicia crop_and_resize_roi_padded ---")
         print(f"DEBUG: Frame de entrada shape: {frame.shape}")
-        print(f"DEBUG: ROI polygon points: {roi_polygon_points}")
+        print(f"DEBUG: ROI: {roi}")
     
     # Cambié [] por None como valor predeterminado, y luego verifico si es una lista vacía.
     # Es más robusto en caso de que se pase None explícitamente.
-    if roi_polygon_points is None or len(roi_polygon_points) == 0:
+    if roi is None or len(roi['points']) == 0:
         if debug:
             print("DEBUG: No hay ROI definida (o lista vacía). Procesando frame completo.")
         result_frame = resize_with_padding(frame, target_size)
@@ -24,7 +24,7 @@ def crop_and_resize_roi_padded(frame, roi_polygon_points=None, target_size=(640,
         return result_frame
 
     # Convertir puntos de ROI a formato adecuado para OpenCV
-    roi_polygon = np.array(roi_polygon_points, dtype=np.int32)
+    roi_polygon = np.array(roi['points'], dtype=np.int32)
 
     # Obtener el bounding box del ROI
     x, y, w, h = cv2.boundingRect(roi_polygon)
