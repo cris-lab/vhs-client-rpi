@@ -61,8 +61,9 @@ sudo chmod -R 775 /var/www/html
 sudo chown -R www-data:www-data /var/www/html
 
 # 9. Instalar Tailscale si no existe
-echo "🌐 Instalando Tailscale..."
+
 if ! command -v tailscale &>/dev/null; then
+  echo "🌐 Instalando Tailscale..."
   curl -fsSL https://tailscale.com/install.sh | sh
 fi
 
@@ -75,9 +76,6 @@ source /opt/vhs/env/bin/activate
 pip install --upgrade pip
 pip install -r /opt/vhs/requirements.txt
 deactivate
-
-# 11. Asegura permisos en xstartup
-chmod +x ~/.vnc/xstartup
 
 echo "✅ Instalación finalizada. Reinicia con: sudo reboot"
 
