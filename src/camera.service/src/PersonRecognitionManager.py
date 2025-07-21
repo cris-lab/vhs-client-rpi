@@ -4,6 +4,7 @@ import json
 import os
 import cv2
 import degirum_tools
+import threading    
 import numpy as np
 from src.ModelLoader import ModelLoader
 
@@ -297,7 +298,9 @@ class PersonRecognitionManager:
                 else:
                     track_data['valid_track'] = False
                     track_data['event_log'].append("discarded_fp")
-                self.save_person_data_to_json(track_data)
+                    
+                self.save_person_data_to_json_async(track_data)
+
                 tracks_to_delete.append(track_id)
 
         for track_id in tracks_to_delete:
@@ -316,7 +319,13 @@ class PersonRecognitionManager:
             return "East" if dx > 0 else "West"
         else:
             return "South" if dy > 0 else "North"
-
+    def save_person_data_to_json_async(self, person_data):
+        threading.Thread(
+            target=self.save_person_data_to_json,
+            args=(person_data,),
+            daemon=True  # Para que no bloquee el cierre del programa
+        ).start()
+    
     def save_person_data_to_json(self, person_data):
         person_uuid = person_data.get("uuid")
         if not person_uuid:
