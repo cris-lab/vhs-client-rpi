@@ -236,6 +236,11 @@ class PersonRecognitionManager:
         movimiento_total = dx + dy
         return movimiento_total
 
+    def bbox_center(self,bbox):
+        x1, y1, x2, y2 = bbox
+        return ((x1 + x2) / 2, (y1 + y2) / 2)
+
+    
     def clean_up_lost_tracks(self, now):
         lost_timeout = self.lost_track_cleanup_timeout_sec
         tracks_to_delete = []
@@ -254,8 +259,8 @@ class PersonRecognitionManager:
                 track_data['total_movement'] = self.calculate_trail_movement(
                     trails_dict[track_data.get('origin_id')]
                 )
+                
                 positions = trails_dict[track_data.get('origin_id')]
-
                 # Nuevo: resumen de posiciones
                 track_data['positions_summary'] = {
                     "start": positions[0],
@@ -264,8 +269,8 @@ class PersonRecognitionManager:
                 }
 
                 # Nuevo: análisis de dirección (asumiendo 640x640)
-                start_x, start_y = positions[0]
-                end_x, end_y = positions[-1]
+                start_x, start_y = self.bbox_center(positions[0])
+                end_x, end_y = self.bbox_center(positions[-1])
 
                 start_zone = self.map_to_grid_zone(start_x, start_y)
                 end_zone = self.map_to_grid_zone(end_x, end_y)
@@ -308,7 +313,7 @@ class PersonRecognitionManager:
 
     def map_to_grid_zone(self, x, y, grid_size=6, frame_size=640):
         cell_size = frame_size / grid_size
-        col = int(x / cell_size)
+        col = int(x / cell_size)    
         row = int(y / cell_size)
         return f"Z{row}{col}"  # Por ejemplo, Z00 (arriba izquierda), Z22 (abajo derecha)
 
@@ -336,3 +341,4 @@ class PersonRecognitionManager:
         except Exception as e:
             print(f"Error saving person data to JSON for UUID {person_uuid}: {e}")
 
+    
