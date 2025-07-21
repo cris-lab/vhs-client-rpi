@@ -294,11 +294,10 @@ class PersonRecognitionManager:
                 if not self.is_false_positive(track_data):
                     track_data['valid_track'] = True
                     track_data['event_log'].append("finalized")
-                    self.save_person_data_to_json(track_data)
                 else:
                     track_data['valid_track'] = False
                     track_data['event_log'].append("discarded_fp")
-                
+                self.save_person_data_to_json(track_data)
                 tracks_to_delete.append(track_id)
 
         for track_id in tracks_to_delete:
