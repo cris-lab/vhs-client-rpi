@@ -18,15 +18,17 @@ fi
 # 2. Instalar TightVNC Server
 sudo apt install tightvncserver
 
-# 2. Instalar XFCE4
-sudo apt install xfce4
-chmod +x ~/.vnc/xstartup
-
-
 # 3. Configurar PCIe Gen 3
 echo "⚙️ Configurando PCIe Gen3..."
 sudo sed -i '/^dtparam=pciex1_gen=/d' /boot/firmware/config.txt
 echo "dtparam=pciex1_gen=3" | sudo tee -a /boot/firmware/config.txt
+
+# 2. Instalar XFCE4
+sudo apt install xfce4
+chmod +x ~/.vnc/xstartup
+
+#install git
+sudo apt install git
 
 # 4. Clonar repositorio
 echo "📦 Clonando VHS..."
