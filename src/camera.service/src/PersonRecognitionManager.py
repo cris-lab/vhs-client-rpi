@@ -400,6 +400,9 @@ class PersonRecognitionManager:
         data_to_save = person_data.copy()
         # Quitar trails para no llenar el JSON
         try:
+            if('last_roi_image' in data_to_save):
+                del data_to_save['last_roi_image']
+                
             with open(json_filename, 'w') as f:
                 json.dump(data_to_save, f, indent=4)
             print(f"Person data saved to: {json_filename}")
