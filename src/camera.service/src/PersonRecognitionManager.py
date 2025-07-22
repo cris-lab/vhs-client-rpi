@@ -362,8 +362,12 @@ class PersonRecognitionManager:
                 else:
                     track_data['valid_track'] = False
                     track_data['event_log'].append("discarded_fp")
+                
+                try:
+                    self.save_person_data_to_json_async(track_data)
                     
-                self.save_person_data_to_json_async(track_data)
+                except Exception as e:
+                    print(f"Error saving person data to JSON for UUID {person_uuid}: {e}")
 
                 tracks_to_delete.append(track_id)
 
