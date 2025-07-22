@@ -47,6 +47,7 @@ class PersonRecognitionManager:
                 continue
             
             if self.attempt_visual_reid(frame, track.get('bbox', []), now):
+                print(f"[ReID] Track {track_id} successfully reassigned after visual re-identification.")
                 continue  # Ya reasignado, salta creación como nuevo
 
             current_frame_track_ids.add(track_id)
@@ -95,7 +96,7 @@ class PersonRecognitionManager:
                 info['duration_tracked'] = info['last_seen'] - info['first_appearance_time']
                 info['lost_since'] = None
 
-            print(f"[DEBUG] Trails Format: {result.trails[track_id][0]} Length: {len(result.trails[track_id])}")
+            #print(f"[DEBUG] Trails Format: {result.trails[track_id][0]} Length: {len(result.trails[track_id])}")
             
             self.process_faces(frame, track, track_id, face_detections)
             #tracker_results.append(track)

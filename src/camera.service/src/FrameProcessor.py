@@ -49,7 +49,6 @@ class FrameProcessor:
         
         # Mejorar esto en otra version
         for person in person_data.values():
-            print(person)
             if 'last_position' in person and len(person['last_position']) == 4:
                 self.draw_bbox_with_id(frame, person['last_position'], person['origin_id'], (0,0,255))
                 
