@@ -94,7 +94,7 @@ class PersonRecognitionManager:
                     self.person_data[track_id]['last_roi_image'] = self.embedding_model(roi)
                     
                     print('last_roi_image:', self.person_data[track_id]['last_roi_image'])
-                    sys.exirt(0)
+                    #sys.exirt(0)
             
             # Si el track YA existe, simplemente lo actualizamos.
             else:
