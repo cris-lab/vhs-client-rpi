@@ -301,6 +301,6 @@ def draw_grid_on_frame(frame, grid_size=6, color=(0, 255, 0), thickness=1):
             text_x = col * cell_width + 5
             text_y = row * cell_height + 20
             cv2.putText(frame, zone_label, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5, (255, 255, 255), 1, cv2.LINE_AA)
+                        0.34, (255, 255, 255), 1, cv2.LINE_AA)
 
     return frame
