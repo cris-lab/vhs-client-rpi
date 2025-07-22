@@ -77,7 +77,7 @@ class PersonRecognitionManager:
                 # 2. Después de crear el esquema, verificamos si existe un track parecido en el buffer.
                 reassigned_id = self.attempt_visual_reid(frame, track.get('bbox', []), now)
 
-                if reassigned_id is not None:
+                if reassigned_id:
                     # Si encontramos uno, fusionamos la información.
                     recovered_data = self.lost_tracks_buffer.pop(reassigned_id)
                     
