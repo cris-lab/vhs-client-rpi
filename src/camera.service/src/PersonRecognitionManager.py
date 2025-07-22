@@ -305,7 +305,7 @@ class PersonRecognitionManager:
         for track_id in tracks_to_delete:
             del self.lost_tracks_buffer[track_id]
 
-    def map_to_grid_zone(self, x, y, grid_size=6, frame_size=640):
+    def map_to_grid_zone(self, x, y, grid_size=8, frame_size=640):
         cell_size = frame_size / grid_size
         col = int(x / cell_size)    
         row = int(y / cell_size)

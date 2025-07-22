@@ -16,4 +16,4 @@ if __name__ == "__main__":
     while True:
         sync_use_case.execute()
         logging.info("Ciclo de sincronización completado, esperando 1 segundo antes de la próxima ejecución")
-        time.sleep(500) # Espera de 500 segundos entre ejecuciones 
+        time.sleep(1000) 

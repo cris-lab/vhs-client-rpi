@@ -12,7 +12,7 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-load_dotenv()
+load_dotenv('/opt/vhs/src/setup.service/.env')
 
 class SyncDocumentsUseCase:
 
@@ -20,7 +20,7 @@ class SyncDocumentsUseCase:
         self.directory = directory
         self.mongo_uri = os.getenv("MONGO_URI")
         self.db_name = os.getenv("MONGO_DB_NAME")
-        self.collection_name = 'events'
+        self.collection_name = 'detections'
  
     def execute(self):
         logging.info("Iniciando sincronización de documentos...")
