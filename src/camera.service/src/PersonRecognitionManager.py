@@ -4,10 +4,10 @@ import json
 import os
 import cv2
 import degirum_tools
-import threading    
+import threading
 import numpy as np
 from src.ModelLoader import ModelLoader
-from scipy.spatial.distance import cosine # Importamos la función para calcular la distancia coseno
+from scipy.spatial.distance import cosine
 
 class PersonRecognitionManager:
 
@@ -73,11 +73,9 @@ class PersonRecognitionManager:
                 reassigned_id = self.attempt_visual_reid(frame, track.get('bbox', []))
                 
                 if reassigned_id is not None:
-                    # Si encontramos uno, fusionamos la información.
                     recovered_data = self.lost_tracks_buffer.pop(reassigned_id)
                     
                     new_person_data['uuid'] = recovered_data.get('uuid', new_uuid)
-                    # El reid_id se actualiza con el reid_id del track recuperado
                     new_person_data['reid_id'] = recovered_data.get('reid_id', new_person_data['reid_id'])
                     new_person_data['origin_id'] = recovered_data.get('origin_id', track_id)
                     new_person_data['captured_rois'] = recovered_data.get('captured_rois', [])
@@ -108,48 +106,35 @@ class PersonRecognitionManager:
         return self.person_data
 
     def handle_lost_and_cleanup_tracks(self, current_frame_track_ids, now):
-        # Tracks que salieron del frame
         for track_id in list(self.person_data.keys()):
             if track_id not in current_frame_track_ids:
                 if track_id not in self.lost_tracks_buffer:
                     self.move_track_to_lost(track_id, now)
-        # Cleanup definitivos
         self.clean_up_lost_tracks(now)
 
-    # --- NUEVA FUNCIÓN para comparar embeddings (distancia coseno) ---
     def compare_embeddings(self, emb1, emb2):
         if emb1 is None or emb2 is None:
-            return float('inf') # Retorna un valor alto para indicar no coincidencia
+            return float('inf')
         
-        # Convierte los resultados del modelo a arrays de numpy para la comparación
         emb1_array = np.array(emb1).flatten()
         emb2_array = np.array(emb2).flatten()
         
-        # Calcula la distancia coseno
         distance = cosine(emb1_array, emb2_array)
         return distance
 
-    # --- FUNCIÓN DE REIDENTIFICACIÓN ACTUALIZADA ---
     def attempt_visual_reid(self, frame, bbox):
-        """
-        Intenta reidentificar un track usando embeddings de re-identificación.
-        Si encuentra una coincidencia, retorna el ID del track perdido.
-        Si no, retorna None.
-        """
         roi_current = self.extract_roi(frame, bbox)
         if roi_current is None:
             return None
         
-        # Genera el embedding para el ROI actual
         current_embedding = self.embedding_model(roi_current).results
         
         best_match_id = None
-        min_distance = self.config.get('reid_distance_threshold', 0.5) # Umbral de distancia para la re-identificación
+        min_distance = self.config.get('reid_distance_threshold', 0.5)
 
         for lost_id, lost_data in list(self.lost_tracks_buffer.items()):
             saved_embedding = lost_data.get('last_roi_image', None)
             
-            # Usa la nueva función de comparación de embeddings
             distance = self.compare_embeddings(current_embedding, saved_embedding)
 
             if distance < min_distance:
@@ -157,8 +142,6 @@ class PersonRecognitionManager:
                 best_match_id = lost_id
     
         return best_match_id
-
-    # --- Resto de las funciones... ---
 
     def head_has_face(self, head_bbox, face_detections, iou_threshold=0.3):
         if not face_detections:
@@ -170,6 +153,10 @@ class PersonRecognitionManager:
         return False
 
     def calculate_iou(self, box1, box2):
+        # Asegurarse de que los bboxes sean listas o tuplas
+        if not isinstance(box1, (list, tuple)) or not isinstance(box2, (list, tuple)) or len(box1) != 4 or len(box2) != 4:
+            return 0.0
+
         x_left = max(box1[0], box2[0])
         y_top = max(box1[1], box2[1])
         x_right = min(box1[2], box2[2])
@@ -183,6 +170,9 @@ class PersonRecognitionManager:
         return intersection_area / union_area
 
     def extract_roi(self, frame, bbox):
+        # Asegurarse de que bbox sea una lista de 4 floats o ints
+        if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
+            return None
         x1, y1, x2, y2 = bbox
         width = x2 - x1
         height = y2 - y1
@@ -262,20 +252,31 @@ class PersonRecognitionManager:
         return False
 
     def calculate_trail_movement(self, trails):
-        if not trails:
+        if not trails or len(trails) < 2:
             return 0
+        
+        # Validación de los puntos del trail para evitar el error 'dict'
         first_point = trails[0]
         last_point = trails[-1]
+
+        if not isinstance(first_point, (list, tuple)) or len(first_point) < 4:
+            if self.debug: print("Invalid format for first_point in trail.")
+            return 0
+        if not isinstance(last_point, (list, tuple)) or len(last_point) < 4:
+            if self.debug: print("Invalid format for last_point in trail.")
+            return 0
+
         dx = abs(last_point[0] - first_point[0])
         dy = abs(last_point[1] - first_point[1])
         movimiento_total = dx + dy
         return movimiento_total
 
-    def bbox_center(self,bbox):
+    def bbox_center(self, bbox):
+        if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
+            return (0, 0) # Retorna un valor seguro
         x1, y1, x2, y2 = bbox
         return ((x1 + x2) / 2, (y1 + y2) / 2)
 
-    
     def clean_up_lost_tracks(self, now):
         lost_timeout = self.lost_track_cleanup_timeout_sec
         tracks_to_delete = []
@@ -331,7 +332,6 @@ class PersonRecognitionManager:
                     track_data['event_log'].append("discarded_fp")
                     
                 self.save_person_data_to_json_async(track_data)
-
                 tracks_to_delete.append(track_id)
 
         for track_id in tracks_to_delete:
