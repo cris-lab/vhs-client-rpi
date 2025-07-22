@@ -89,7 +89,7 @@ class PersonRecognitionManager:
                 roi = self.extract_roi(frame, track.get('bbox', []))
                 if roi is not None:
                     # Accedemos a la clave 'data' del resultado del modelo
-                    embedding_data = self.embedding_model(roi).results
+                    embedding_data = self.embedding_model(roi)
                     self.person_data[track_id]['last_roi_image'] = embedding_data.get('data', [])
             
             else:
