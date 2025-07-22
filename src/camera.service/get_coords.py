@@ -489,6 +489,9 @@ if __name__ == "__main__":
     if selected_points:
         print(f"Coordenadas para '{stream_name}':")
         print(selected_points)
+        with open(os.path.join(FILE_PATH, 'roi_coordinates.txt'), 'w') as f:
+            f.write(f"Stream: {stream_name}\n")
+            f.write(f"Coordenadas: {selected_points}\n")
         if bbox_coords and bbox_dimensions:
             print(f"\nRectángulo Delimitador (Bounding Box) en el frame original:")
             print(f"  Esquina Superior Izquierda: ({bbox_coords[0]}, {bbox_coords[1]})")
