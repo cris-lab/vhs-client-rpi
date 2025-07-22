@@ -86,6 +86,7 @@ class PersonRecognitionManager:
                     new_person_data['origin_id'] = recovered_data.get('origin_id', track_id)
                     new_person_data['captured_rois'] = recovered_data.get('captured_rois', [])
                     new_person_data['event_log'] += ["recovered"]
+                    
                     print(f"[ReID] Track {track_id} reassigned and recovered from {reassigned_id}. New origin_id: {new_person_data['origin_id']}.")
                 
                 # Guardamos el esquema final (sea nuevo o fusionado) en person_data.
