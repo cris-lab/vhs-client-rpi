@@ -44,6 +44,9 @@ class PersonRecognitionManager:
                 continue
 
             current_frame_track_ids.add(track_id)
+            
+            x1, y1, x2, y2 = track.get('bbox', [0, 0, 0, 0])
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
             if track_id not in self.person_data:
                 new_uuid = str(uuid.uuid4())
