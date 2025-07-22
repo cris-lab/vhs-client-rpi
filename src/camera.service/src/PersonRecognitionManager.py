@@ -42,7 +42,6 @@ class PersonRecognitionManager:
                 continue
             current_frame_track_ids.add(track_id)
             
-            # Si es un track NUEVO, creamos su esquema.
             if track_id not in self.person_data:
                 new_uuid = str(uuid.uuid4())
                 new_person_data = {
@@ -69,7 +68,6 @@ class PersonRecognitionManager:
                     "trails": result.trails.get(track_id, [])
                 }
                 
-                # Después de crear el esquema, verificamos si existe un track parecido en el buffer.
                 reassigned_id = self.attempt_visual_reid(frame, track.get('bbox', []))
                 
                 if reassigned_id is not None:
@@ -90,7 +88,6 @@ class PersonRecognitionManager:
                     # Guardamos el embedding, no la imagen
                     self.person_data[track_id]['last_roi_image'] = self.embedding_model(roi).results
             
-            # Si el track YA existe, simplemente lo actualizamos.
             else:
                 info = self.person_data[track_id]
                 info['last_seen'] = now
@@ -153,10 +150,8 @@ class PersonRecognitionManager:
         return False
 
     def calculate_iou(self, box1, box2):
-        # Asegurarse de que los bboxes sean listas o tuplas
         if not isinstance(box1, (list, tuple)) or not isinstance(box2, (list, tuple)) or len(box1) != 4 or len(box2) != 4:
             return 0.0
-
         x_left = max(box1[0], box2[0])
         y_top = max(box1[1], box2[1])
         x_right = min(box1[2], box2[2])
@@ -170,7 +165,6 @@ class PersonRecognitionManager:
         return intersection_area / union_area
 
     def extract_roi(self, frame, bbox):
-        # Asegurarse de que bbox sea una lista de 4 floats o ints
         if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
             return None
         x1, y1, x2, y2 = bbox
@@ -231,9 +225,10 @@ class PersonRecognitionManager:
             print(f"Moved track {track_id} (UUID: {self.lost_tracks_buffer[track_id]['uuid']}) to lost_tracks_buffer (awaiting final cleanup check).")
 
     def is_false_positive(self, track_data):
+        # Asegurarse de que trails es una lista
         trails = track_data.get('trails', [])
         track_id = track_data.get('origin_id')
-        if not trails or len(trails) < 2:
+        if not isinstance(trails, list) or len(trails) < 2:
             if self.debug:
                 print(f"Track {track_id}: Very short or empty trajectory (len={len(trails)}).")
             return True
@@ -254,11 +249,10 @@ class PersonRecognitionManager:
     def calculate_trail_movement(self, trails):
         if not trails or len(trails) < 2:
             return 0
-        
-        # Validación de los puntos del trail para evitar el error 'dict'
         first_point = trails[0]
         last_point = trails[-1]
-
+        
+        # Validación de los puntos del trail
         if not isinstance(first_point, (list, tuple)) or len(first_point) < 4:
             if self.debug: print("Invalid format for first_point in trail.")
             return 0
@@ -273,7 +267,7 @@ class PersonRecognitionManager:
 
     def bbox_center(self, bbox):
         if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
-            return (0, 0) # Retorna un valor seguro
+            return (0, 0)
         x1, y1, x2, y2 = bbox
         return ((x1 + x2) / 2, (y1 + y2) / 2)
 
@@ -339,7 +333,7 @@ class PersonRecognitionManager:
 
     def map_to_grid_zone(self, x, y, grid_size=8, frame_size=640):
         cell_size = frame_size / grid_size
-        col = int(x / cell_size)    
+        col = int(x / cell_size)
         row = int(y / cell_size)
         return f"Z{row}{col}"
 
