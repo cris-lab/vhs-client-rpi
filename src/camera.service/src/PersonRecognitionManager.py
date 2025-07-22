@@ -154,7 +154,7 @@ class PersonRecognitionManager:
             roi_saved = lost_data.get('last_roi_image', None)
             similarity = self.compare_rois_histogram(roi_current, roi_saved)
 
-            if similarity > 0.7 and similarity > best_similarity:
+            if similarity > self.config.get('reid_similarity_threshold', 0.7) and similarity > best_similarity:
                 best_similarity = similarity
                 best_match_id = lost_id
 
