@@ -90,7 +90,9 @@ class PersonRecognitionManager:
                 if roi is not None:
                     # Accedemos a la clave 'data' del resultado del modelo
                     embedding_data = self.embedding_model(roi)
+                    print('genered embedding:', embedding_data)
                     self.person_data[track_id]['last_roi_image'] = embedding_data.get('data', [])
+                    print('pase por embeddings')
             
             else:
                 info = self.person_data[track_id]
