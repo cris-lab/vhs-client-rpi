@@ -47,19 +47,17 @@ class PersonRecognitionManager:
                 continue
             current_frame_track_ids.add(track_id)
             
-            if self.attempt_visual_reid(frame, track.get('bbox', []), now):
-                print(f"[ReID] Track {track_id} successfully reassigned after visual re-identification.")
-                continue
-            
+            # 1. Si es un track NUEVO, creamos su esquema.
             if track_id not in self.person_data:
+                # Creamos un esquema inicial para el nuevo track
                 new_uuid = str(uuid.uuid4())
-                self.person_data[track_id] = {
+                new_person_data = {
                     "uuid": new_uuid,
                     "gender": None,
                     "age": None,
                     "features": [],
                     "description": "",
-                    "attributes": {},           # Futuros atributos (ropa, accesorios, etc)
+                    "attributes": {},
                     "frames_seen": 1,
                     "duration_tracked": 0.0,
                     "total_movement": 0,
@@ -71,32 +69,42 @@ class PersonRecognitionManager:
                     "origin_id": track_id,
                     "captured_rois": [],
                     "best_roi_path": None,
-                    "valid_track": True,        # Cambia si se descarta por FP
+                    "valid_track": True,
                     "event_log": ["detected"],
-                    "trails": result.trails[track_id]
+                    "trails": result.trails.get(track_id, [])
                 }
                 
+                # 2. Después de crear el esquema, verificamos si existe un track parecido en el buffer.
+                reassigned_id = self.attempt_visual_reid(frame, track.get('bbox', []))
+
+                if reassigned_id is not None:
+                    # Si encontramos uno, fusionamos la información.
+                    recovered_data = self.lost_tracks_buffer.pop(reassigned_id)
+                    
+                    # Actualizamos los datos del nuevo esquema con la info del track perdido
+                    new_person_data['uuid'] = recovered_data.get('uuid', new_uuid)
+                    new_person_data['origin_id'] = recovered_data.get('origin_id', track_id)
+                    new_person_data['captured_rois'] = recovered_data.get('captured_rois', [])
+                    new_person_data['event_log'] += ["recovered"]
+                    print(f"[ReID] Track {track_id} reassigned and recovered from {reassigned_id}. New origin_id: {new_person_data['origin_id']}.")
+                
+                # Guardamos el esquema final (sea nuevo o fusionado) en person_data.
+                self.person_data[track_id] = new_person_data
+
                 roi = self.extract_roi(frame, track.get('bbox', []))
                 if roi is not None:
                     self.person_data[track_id]['last_roi_image'] = roi.copy()
-                
-                if track_id in self.lost_tracks_buffer:
-                    recovered_data = self.lost_tracks_buffer.pop(track_id)
-                    self.person_data[track_id]['uuid'] = recovered_data.get('uuid', new_uuid)
-                    self.person_data[track_id]['captured_rois'] = recovered_data.get('captured_rois', [])
-                    self.person_data[track_id]['event_log'] += ["recovered"]
-                    print(f"Track {track_id} reappeared and was recovered from the buffer with UUID {self.person_data[track_id]['uuid']}.")
+            
+            # 3. Si el track YA existe, simplemente lo actualizamos.
             else:
                 info = self.person_data[track_id]
                 info['last_seen'] = now
                 info['last_position'] = track.get('bbox', [])
-                info['trails'] = result.trails[track_id]
+                info['trails'] = result.trails.get(track_id, [])
                 info['frames_seen'] += 1
                 info['duration_tracked'] = info['last_seen'] - info['first_appearance_time']
                 info['lost_since'] = None
 
-            #print(f"[DEBUG] Trails Format: {result.trails[track_id][0]} Length: {len(result.trails[track_id])}")
-            
             self.process_faces(frame, track, track_id, face_detections)
             #tracker_results.append(track)
 
@@ -136,8 +144,8 @@ class PersonRecognitionManager:
         """
         roi_current = self.extract_roi(frame, bbox)
         if roi_current is None:
-            return False  # No se pudo extraer ROI
-
+            return False 
+        
         best_match_id = None
         best_similarity = 0.0
 
