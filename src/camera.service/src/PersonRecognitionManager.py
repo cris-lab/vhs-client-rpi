@@ -74,18 +74,18 @@ class PersonRecognitionManager:
                 }
                 
                 # Después de crear el esquema, verificamos si existe un track parecido en el buffer.
-                reassigned_id = self.attempt_visual_reid(frame, track.get('bbox', []))
+                # reassigned_id = self.attempt_visual_reid(frame, track.get('bbox', []))
                 
-                if reassigned_id is not None:
-                    # Si encontramos uno, fusionamos la información.
-                    recovered_data = self.lost_tracks_buffer.pop(reassigned_id)
+                # if reassigned_id is not None:
+                #     # Si encontramos uno, fusionamos la información.
+                #     recovered_data = self.lost_tracks_buffer.pop(reassigned_id)
                     
-                    new_person_data['uuid'] = recovered_data.get('uuid', new_uuid)
-                    new_person_data['reid_id'] = recovered_data.get('origin_id', track_id)
-                    new_person_data['captured_rois'] = recovered_data.get('captured_rois', [])
-                    new_person_data['event_log'] += ["recovered"]
+                #     new_person_data['uuid'] = recovered_data.get('uuid', new_uuid)
+                #     new_person_data['reid_id'] = recovered_data.get('origin_id', track_id)
+                #     new_person_data['captured_rois'] = recovered_data.get('captured_rois', [])
+                #     new_person_data['event_log'] += ["recovered"]
                     
-                    print(f"[ReID] Track {track_id} reassigned and recovered from {reassigned_id}. New origin_id: {new_person_data['origin_id']}.")
+                #     print(f"[ReID] Track {track_id} reassigned and recovered from {reassigned_id}. New origin_id: {new_person_data['origin_id']}.")
                 
                 self.person_data[track_id] = new_person_data
 
@@ -132,30 +132,6 @@ class PersonRecognitionManager:
         cv2.normalize(hist2, hist2)
         similarity = cv2.compareHist(hist1, hist2, cv2.HISTCMP_CORREL)
         return similarity
-
-    def attempt_visual_reid(self, frame, bbox):
-        """
-        Intenta reidentificar un track usando comparación visual.
-        Si encuentra una coincidencia, retorna el ID del track perdido.
-        Si no, retorna None.
-        """
-        roi_current = self.extract_roi(frame, bbox)
-        if roi_current is None:
-            return None 
-        
-        best_match_id = None
-        best_similarity = 0.0
-
-        for lost_id, lost_data in list(self.lost_tracks_buffer.items()):
-            roi_saved = lost_data.get('last_roi_image', None)
-            similarity = self.compare_rois_histogram(roi_current, roi_saved)
-
-            if similarity > self.config.get('reid_similarity_threshold', 0.7) and similarity > best_similarity:
-                best_similarity = similarity
-                best_match_id = lost_id
-    
-        return best_match_id
-
 
     def head_has_face(self, head_bbox, face_detections, iou_threshold=0.3):
         if not face_detections:
