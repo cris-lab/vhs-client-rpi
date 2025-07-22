@@ -50,7 +50,11 @@ class FrameProcessor:
         for person in person_data.values():
             print(person)
             if 'last_position' in person and len(person['last_position']) == 4:
-                x1, y1, x2, y2 = person['last_position']
+                x1 = int(person['last_position'][0])
+                y1 = int(person['last_position'][1])
+                x2 = int(person['last_position'][2])
+                y2 = int(person['last_position'][3])
+                
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.putText(frame, f"ID: {person['id']}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             
