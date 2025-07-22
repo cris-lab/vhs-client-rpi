@@ -6,6 +6,7 @@ import cv2
 import degirum_tools
 import threading    
 import numpy as np
+import cv2
 from src.ModelLoader import ModelLoader
 
 class PersonRecognitionManager:
@@ -32,7 +33,7 @@ class PersonRecognitionManager:
     def process_tracks(self, frame, result):
         now = time.time()
         current_frame_track_ids = set()
-        tracker_results = []
+        #tracker_results = []
         face_detections = [
             d for d in result.results if d.get('label', '').lower() == 'human face'
         ]
@@ -45,9 +46,6 @@ class PersonRecognitionManager:
 
             current_frame_track_ids.add(track_id)
             
-            x1, y1, x2, y2 = track.get('bbox', [0, 0, 0, 0])
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-
             if track_id not in self.person_data:
                 new_uuid = str(uuid.uuid4())
                 self.person_data[track_id] = {
@@ -62,7 +60,6 @@ class PersonRecognitionManager:
                     "total_movement": 0,
                     "first_position": track.get('bbox', []),
                     "last_position": track.get('bbox', []),
-                    #"positions": [track.get('bbox', [])],   # Downsampled trajectory
                     "first_appearance_time": now,
                     "last_seen": now,
                     "lost_since": None,
@@ -85,14 +82,13 @@ class PersonRecognitionManager:
                 info['last_position'] = track.get('bbox', [])
                 info['trails'] = result.trails[track_id]
                 info['frames_seen'] += 1
-                #info['positions'].append(track.get('bbox', []))
                 info['duration_tracked'] = info['last_seen'] - info['first_appearance_time']
                 info['lost_since'] = None
 
             print(f"[DEBUG] Trails Format: {result.trails[track_id][0]} Length: {len(result.trails[track_id])}")
             
             self.process_faces(frame, track, track_id, face_detections)
-            tracker_results.append(track)
+            #tracker_results.append(track)
 
         # Paso 2: Tracks que salieron del frame
         for track_id in list(self.person_data.keys()):
@@ -102,7 +98,7 @@ class PersonRecognitionManager:
 
         # Paso 3: Cleanup definitivos
         self.clean_up_lost_tracks(now)
-        return tracker_results
+        return self.person_data
 
     def head_has_face(self, head_bbox, face_detections, iou_threshold=0.3):
         if not face_detections:

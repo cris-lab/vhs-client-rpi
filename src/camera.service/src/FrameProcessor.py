@@ -3,7 +3,7 @@ import degirum_tools
 from src.ModelLoader import ModelLoader
 from src.PersonRecognitionManager import PersonRecognitionManager
 import numpy as np
-import inspect
+import cv2
 
 class FrameProcessor:
     
@@ -44,12 +44,19 @@ class FrameProcessor:
         if len(result.results) > 0:
             self.tracker.analyze(result)
         
-        self.person_recognition_manager.process_tracks(frame, result)
+        person_data = self.person_recognition_manager.process_tracks(frame, result)
         
         # Mejorar esto en otra version
-        if len(result.results) > 0:
-            self.tracker.annotate(result, frame)
-
+        for person in person_data.values():
+            if 'bbox' in person and len(person['bbox']) == 4:
+                x1, y1, x2, y2 = person['bbox']
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(frame, f"ID: {person['id']}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                
+            if 'age' in person:
+                cv2.putText(frame, f"Age: {person['age']}", (x1, y1 - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                
+            
         return frame, True
     
     
