@@ -63,6 +63,7 @@ class PersonRecognitionManager:
                     "last_seen": now,
                     "lost_since": None,
                     "origin_id": track_id,
+                    "reid_id": track_id,
                     "captured_rois": [],
                     "best_roi_path": None,
                     "valid_track": True,
@@ -78,7 +79,7 @@ class PersonRecognitionManager:
                     recovered_data = self.lost_tracks_buffer.pop(reassigned_id)
                     
                     new_person_data['uuid'] = recovered_data.get('uuid', new_uuid)
-                    new_person_data['origin_id'] = recovered_data.get('origin_id', track_id)
+                    new_person_data['reid_id'] = recovered_data.get('origin_id', track_id)
                     new_person_data['captured_rois'] = recovered_data.get('captured_rois', [])
                     new_person_data['event_log'] += ["recovered"]
                     
