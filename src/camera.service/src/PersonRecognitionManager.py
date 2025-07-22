@@ -6,8 +6,8 @@ import cv2
 import degirum_tools
 import threading    
 import numpy as np
-import cv2
 from src.ModelLoader import ModelLoader
+from scipy.spatial.distance import cosine # Importamos la función para calcular la distancia coseno
 
 class PersonRecognitionManager:
 
@@ -23,11 +23,9 @@ class PersonRecognitionManager:
         self.roi_padding_factor = config.get('roi_padding_factor', 0.15)
         self.fece_feature_model = degirum_tools.CombiningCompoundModel(
             ModelLoader('yolov8n_relu6_fairface_gender--256x256_quant_hailort_hailo8l_1').load_model(),
-            # degirum_tools.CombiningCompoundModel(
-                ModelLoader('yolov8n_relu6_age--256x256_quant_hailort_hailo8l_1').load_model(),
-                #ModelLoader('yolov8n_imdbage_bmse--224x224_quant_hailort_multidevice_2').load_model(),
-            )
-        # )
+            ModelLoader('yolov8n_relu6_age--256x256_quant_hailort_hailo8l_1').load_model(),
+        )
+        self.embedding_model = ModelLoader('repvgg_a0_person_reid--256x128_quant_hailort_hailo8l_1').load_model()
         os.makedirs(self.base_storage_dir, exist_ok=True)
 
     def process_tracks(self, frame, result):
@@ -79,17 +77,20 @@ class PersonRecognitionManager:
                     recovered_data = self.lost_tracks_buffer.pop(reassigned_id)
                     
                     new_person_data['uuid'] = recovered_data.get('uuid', new_uuid)
-                    new_person_data['reid_id'] = recovered_data.get('origin_id', track_id)
+                    # El reid_id se actualiza con el reid_id del track recuperado
+                    new_person_data['reid_id'] = recovered_data.get('reid_id', new_person_data['reid_id'])
+                    new_person_data['origin_id'] = recovered_data.get('origin_id', track_id)
                     new_person_data['captured_rois'] = recovered_data.get('captured_rois', [])
                     new_person_data['event_log'] += ["recovered"]
                     
-                    print(f"[ReID] Track {track_id} reassigned and recovered from {reassigned_id}. New origin_id: {new_person_data['origin_id']}.")
+                    print(f"[ReID] Track {track_id} reassigned and recovered from {reassigned_id}. New reid_id: {new_person_data['reid_id']}.")
                 
                 self.person_data[track_id] = new_person_data
 
                 roi = self.extract_roi(frame, track.get('bbox', []))
                 if roi is not None:
-                    self.person_data[track_id]['last_roi_image'] = roi.copy()
+                    # Guardamos el embedding, no la imagen
+                    self.person_data[track_id]['last_roi_image'] = self.embedding_model(roi).results
             
             # Si el track YA existe, simplemente lo actualizamos.
             else:
@@ -112,45 +113,52 @@ class PersonRecognitionManager:
             if track_id not in current_frame_track_ids:
                 if track_id not in self.lost_tracks_buffer:
                     self.move_track_to_lost(track_id, now)
-
         # Cleanup definitivos
         self.clean_up_lost_tracks(now)
 
-    def compare_rois_histogram(self, roi1, roi2):
-        if roi1 is None or roi2 is None:
-            return 0.0
-        hsv_roi1 = cv2.cvtColor(roi1, cv2.COLOR_BGR2HSV)
-        hsv_roi2 = cv2.cvtColor(roi2, cv2.COLOR_BGR2HSV)
-        hist1 = cv2.calcHist([hsv_roi1], [0, 1], None, [50, 60], [0, 180, 0, 256])
-        hist2 = cv2.calcHist([hsv_roi2], [0, 1], None, [50, 60], [0, 180, 0, 256])
-        cv2.normalize(hist1, hist1)
-        cv2.normalize(hist2, hist2)
-        similarity = cv2.compareHist(hist1, hist2, cv2.HISTCMP_CORREL)
-        return similarity
+    # --- NUEVA FUNCIÓN para comparar embeddings (distancia coseno) ---
+    def compare_embeddings(self, emb1, emb2):
+        if emb1 is None or emb2 is None:
+            return float('inf') # Retorna un valor alto para indicar no coincidencia
+        
+        # Convierte los resultados del modelo a arrays de numpy para la comparación
+        emb1_array = np.array(emb1).flatten()
+        emb2_array = np.array(emb2).flatten()
+        
+        # Calcula la distancia coseno
+        distance = cosine(emb1_array, emb2_array)
+        return distance
 
+    # --- FUNCIÓN DE REIDENTIFICACIÓN ACTUALIZADA ---
     def attempt_visual_reid(self, frame, bbox):
         """
-        Intenta reidentificar un track usando comparación visual.
+        Intenta reidentificar un track usando embeddings de re-identificación.
         Si encuentra una coincidencia, retorna el ID del track perdido.
         Si no, retorna None.
         """
         roi_current = self.extract_roi(frame, bbox)
         if roi_current is None:
-            return None 
+            return None
+        
+        # Genera el embedding para el ROI actual
+        current_embedding = self.embedding_model(roi_current).results
         
         best_match_id = None
-        best_similarity = 0.0
+        min_distance = self.config.get('reid_distance_threshold', 0.5) # Umbral de distancia para la re-identificación
 
         for lost_id, lost_data in list(self.lost_tracks_buffer.items()):
-            roi_saved = lost_data.get('last_roi_image', None)
-            similarity = self.compare_rois_histogram(roi_current, roi_saved)
+            saved_embedding = lost_data.get('last_roi_image', None)
+            
+            # Usa la nueva función de comparación de embeddings
+            distance = self.compare_embeddings(current_embedding, saved_embedding)
 
-            if similarity > self.config.get('reid_similarity_threshold', 0.7) and similarity > best_similarity:
-                best_similarity = similarity
+            if distance < min_distance:
+                min_distance = distance
                 best_match_id = lost_id
     
         return best_match_id
 
+    # --- Resto de las funciones... ---
 
     def head_has_face(self, head_bbox, face_detections, iou_threshold=0.3):
         if not face_detections:
@@ -209,30 +217,10 @@ class PersonRecognitionManager:
             person_info = self.person_data.get(track_id)
             if not person_info:
                 return
-            # Guardar el ROI si hay cupo
             if len(person_info['features']) < self.face_save_limit:
-                # Analizar atributos
                 face_result = self.fece_feature_model(roi)
                 person_info['features'].append(face_result.results)
-                # # Guardar ROI a disco
-                # roi_path = self.save_roi_image(roi, person_info["uuid"])
-                # if roi_path:
-                #     person_info['captured_rois'].append(roi_path)
-                #     # Si es la ROI de mayor tamaño, actualizar best_roi_path
-                #     if (person_info['best_roi_path'] is None or
-                #         self.get_roi_area(roi) > self.get_roi_area_from_file(person_info['best_roi_path'])):
-                #         person_info['best_roi_path'] = roi_path
-                #     person_info['event_log'].append("roi_captured")
-
-    # def save_roi_image(self, roi, uuid):
-    #     """Guarda la imagen del ROI en el folder del uuid y retorna el path."""
-    #     dir_path = os.path.join(self.base_storage_dir, uuid, "rois")
-    #     os.makedirs(dir_path, exist_ok=True)
-    #     img_name = f"roi_{int(time.time()*1000)}.jpg"
-    #     img_path = os.path.join(dir_path, img_name)
-    #     cv2.imwrite(img_path, roi)
-    #     return img_path
-
+    
     def get_roi_area(self, roi):
         return roi.shape[0] * roi.shape[1]
 
@@ -253,13 +241,8 @@ class PersonRecognitionManager:
             print(f"Moved track {track_id} (UUID: {self.lost_tracks_buffer[track_id]['uuid']}) to lost_tracks_buffer (awaiting final cleanup check).")
 
     def is_false_positive(self, track_data):
-        trails_dict = track_data.get('trails', {})
+        trails = track_data.get('trails', [])
         track_id = track_data.get('origin_id')
-        if not isinstance(trails_dict, dict) or track_id not in trails_dict:
-            if self.debug:
-                print(f"Track {track_id}: No trajectory registered or malformed trails_dict.")
-            return True
-        trails = trails_dict[track_id]
         if not trails or len(trails) < 2:
             if self.debug:
                 print(f"Track {track_id}: Very short or empty trajectory (len={len(trails)}).")
@@ -303,13 +286,11 @@ class PersonRecognitionManager:
             time_difference = now - lost_since
             person_uuid = track_data.get("uuid", "unknown")
 
-            # Ahora usa 'trails' como lista, no como dict
             trails = track_data.get('trails', [])
             track_data['duration_tracked'] = track_data['last_seen'] - track_data['first_appearance_time']
 
             if trails and len(trails) > 1:
                 track_data['total_movement'] = self.calculate_trail_movement(trails)
-                # Resumen
                 start_x, start_y = self.bbox_center(trails[0])
                 end_x, end_y = self.bbox_center(trails[-1])
                 track_data['positions_summary'] = {
@@ -331,7 +312,6 @@ class PersonRecognitionManager:
                 track_data['exit_zone'] = None
                 track_data['direction'] = None
 
-            # Calcular promedio edad/género
             ages, genders = [], []
             for feature_set in track_data.get('features', []):
                 for item in feature_set:
@@ -361,7 +341,7 @@ class PersonRecognitionManager:
         cell_size = frame_size / grid_size
         col = int(x / cell_size)    
         row = int(y / cell_size)
-        return f"Z{row}{col}"  # Por ejemplo, Z00 (arriba izquierda), Z22 (abajo derecha)
+        return f"Z{row}{col}"
 
     def estimate_direction(self, start_x, start_y, end_x, end_y):
         dx = end_x - start_x
@@ -370,11 +350,12 @@ class PersonRecognitionManager:
             return "East" if dx > 0 else "West"
         else:
             return "South" if dy > 0 else "North"
+            
     def save_person_data_to_json_async(self, person_data):
         threading.Thread(
             target=self.save_person_data_to_json,
             args=(person_data,),
-            daemon=True  # Para que no bloquee el cierre del programa
+            daemon=True
         ).start()
     
     def save_person_data_to_json(self, person_data):
@@ -385,15 +366,13 @@ class PersonRecognitionManager:
 
         json_filename = os.path.join(self.base_storage_dir, f"{person_uuid}.json")
         data_to_save = person_data.copy()
-        # Quitar trails para no llenar el JSON
+        
         try:
-            if('last_roi_image' in data_to_save):
+            if 'last_roi_image' in data_to_save:
                 del data_to_save['last_roi_image']
-                
+            
             with open(json_filename, 'w') as f:
                 json.dump(data_to_save, f, indent=4)
             print(f"Person data saved to: {json_filename}")
         except Exception as e:
             print(f"Error saving person data to JSON for UUID {person_uuid}: {e}")
-
-    
