@@ -33,12 +33,9 @@ class PersonRecognitionManager:
     def process_tracks(self, frame, result):
         now = time.time()
         current_frame_track_ids = set()
-        #tracker_results = []
-        face_detections = [
-            d for d in result.results if d.get('label', '').lower() == 'human face'
-        ]
+        face_detections = [d for d in result.results if d.get('label', '').lower() == 'human face']
+
         for track in result.results:
-            
             if track.get('label') != 'head':
                 continue
             
@@ -47,9 +44,8 @@ class PersonRecognitionManager:
                 continue
             current_frame_track_ids.add(track_id)
             
-            # 1. Si es un track NUEVO, creamos su esquema.
+            # Si es un track NUEVO, creamos su esquema.
             if track_id not in self.person_data:
-                # Creamos un esquema inicial para el nuevo track
                 new_uuid = str(uuid.uuid4())
                 new_person_data = {
                     "uuid": new_uuid,
@@ -74,14 +70,13 @@ class PersonRecognitionManager:
                     "trails": result.trails.get(track_id, [])
                 }
                 
-                # 2. Después de crear el esquema, verificamos si existe un track parecido en el buffer.
-                reassigned_id = self.attempt_visual_reid(frame, track.get('bbox', []), now)
-
-                if reassigned_id:
+                # Después de crear el esquema, verificamos si existe un track parecido en el buffer.
+                reassigned_id = self.attempt_visual_reid(frame, track.get('bbox', []))
+                
+                if reassigned_id is not None:
                     # Si encontramos uno, fusionamos la información.
                     recovered_data = self.lost_tracks_buffer.pop(reassigned_id)
                     
-                    # Actualizamos los datos del nuevo esquema con la info del track perdido
                     new_person_data['uuid'] = recovered_data.get('uuid', new_uuid)
                     new_person_data['origin_id'] = recovered_data.get('origin_id', track_id)
                     new_person_data['captured_rois'] = recovered_data.get('captured_rois', [])
@@ -89,14 +84,13 @@ class PersonRecognitionManager:
                     
                     print(f"[ReID] Track {track_id} reassigned and recovered from {reassigned_id}. New origin_id: {new_person_data['origin_id']}.")
                 
-                # Guardamos el esquema final (sea nuevo o fusionado) en person_data.
                 self.person_data[track_id] = new_person_data
 
                 roi = self.extract_roi(frame, track.get('bbox', []))
                 if roi is not None:
                     self.person_data[track_id]['last_roi_image'] = roi.copy()
             
-            # 3. Si el track YA existe, simplemente lo actualizamos.
+            # Si el track YA existe, simplemente lo actualizamos.
             else:
                 info = self.person_data[track_id]
                 info['last_seen'] = now
@@ -107,62 +101,54 @@ class PersonRecognitionManager:
                 info['lost_since'] = None
 
             self.process_faces(frame, track, track_id, face_detections)
-            #tracker_results.append(track)
 
-        # Paso 2: Tracks que salieron del frame
+        self.handle_lost_and_cleanup_tracks(current_frame_track_ids, now)
+        return self.person_data
+
+    def handle_lost_and_cleanup_tracks(self, current_frame_track_ids, now):
+        # Tracks que salieron del frame
         for track_id in list(self.person_data.keys()):
             if track_id not in current_frame_track_ids:
                 if track_id not in self.lost_tracks_buffer:
                     self.move_track_to_lost(track_id, now)
 
-        # Paso 3: Cleanup definitivos
+        # Cleanup definitivos
         self.clean_up_lost_tracks(now)
-        return self.person_data
 
     def compare_rois_histogram(self, roi1, roi2):
-        """Compara dos imágenes ROI mediante histogramas de color."""
         if roi1 is None or roi2 is None:
             return 0.0
-
         hsv_roi1 = cv2.cvtColor(roi1, cv2.COLOR_BGR2HSV)
         hsv_roi2 = cv2.cvtColor(roi2, cv2.COLOR_BGR2HSV)
-
         hist1 = cv2.calcHist([hsv_roi1], [0, 1], None, [50, 60], [0, 180, 0, 256])
         hist2 = cv2.calcHist([hsv_roi2], [0, 1], None, [50, 60], [0, 180, 0, 256])
-
         cv2.normalize(hist1, hist1)
         cv2.normalize(hist2, hist2)
-
         similarity = cv2.compareHist(hist1, hist2, cv2.HISTCMP_CORREL)
         return similarity
 
-    def attempt_visual_reid(self, frame, bbox, now):
+    def attempt_visual_reid(self, frame, bbox):
         """
-        Intenta reidentificar un track usando comparación visual (histogramas).
-        Si encuentra una coincidencia visual, recupera el track perdido y lo reasigna.
-
-        Retorna True si reasignó un track, False en caso contrario.
+        Intenta reidentificar un track usando comparación visual.
+        Si encuentra una coincidencia, retorna el ID del track perdido.
+        Si no, retorna None.
         """
         roi_current = self.extract_roi(frame, bbox)
         if roi_current is None:
-            return False 
+            return None 
         
         best_match_id = None
         best_similarity = 0.0
 
-        for lost_id, lost_data in self.lost_tracks_buffer.items():
+        for lost_id, lost_data in list(self.lost_tracks_buffer.items()):
             roi_saved = lost_data.get('last_roi_image', None)
             similarity = self.compare_rois_histogram(roi_current, roi_saved)
 
             if similarity > self.config.get('reid_similarity_threshold', 0.7) and similarity > best_similarity:
                 best_similarity = similarity
                 best_match_id = lost_id
-
-        if best_match_id is not None:
-            print(f"[ReID] Track visualmente similar al perdido {best_match_id} (sim={best_similarity:.2f}). Reasignando ID.")
-            return self.lost_tracks_buffer.pop(best_match_id)
-
-        return False
+    
+        return best_match_id
 
 
     def head_has_face(self, head_bbox, face_detections, iou_threshold=0.3):
@@ -362,12 +348,8 @@ class PersonRecognitionManager:
                 else:
                     track_data['valid_track'] = False
                     track_data['event_log'].append("discarded_fp")
-                
-                try:
-                    self.save_person_data_to_json_async(track_data)
                     
-                except Exception as e:
-                    print(f"Error saving person data to JSON for UUID {person_uuid}: {e}")
+                self.save_person_data_to_json_async(track_data)
 
                 tracks_to_delete.append(track_id)
 
