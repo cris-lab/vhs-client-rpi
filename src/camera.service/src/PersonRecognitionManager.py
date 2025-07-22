@@ -45,12 +45,11 @@ class PersonRecognitionManager:
             track_id = track.get('track_id', None)
             if track_id is None:
                 continue
+            current_frame_track_ids.add(track_id)
             
             if self.attempt_visual_reid(frame, track.get('bbox', []), now):
                 print(f"[ReID] Track {track_id} successfully reassigned after visual re-identification.")
-                continue  # Ya reasignado, salta creación como nuevo
-
-            current_frame_track_ids.add(track_id)
+                continue
             
             if track_id not in self.person_data:
                 new_uuid = str(uuid.uuid4())
@@ -146,7 +145,7 @@ class PersonRecognitionManager:
             roi_saved = lost_data.get('last_roi_image', None)
             similarity = self.compare_rois_histogram(roi_current, roi_saved)
 
-            if similarity > 0.5 and similarity > best_similarity:
+            if similarity > 0.7 and similarity > best_similarity:
                 best_similarity = similarity
                 best_match_id = lost_id
 
