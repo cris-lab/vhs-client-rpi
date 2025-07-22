@@ -56,12 +56,16 @@ class FrameProcessor:
                 y2 = int(person['last_position'][3])
                 
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.putText(frame, f"ID: {person['id']}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.putText(frame, f"{person['origin_id']}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             
                 # Mostrar el tiempo de procesamiento
                 if 'age' in person:
                     age = person['age']
                     cv2.putText(frame, f"Age: {age}", (x1, y1 - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    
+                if 'gender' in person:
+                    gender = person['gender']
+                    cv2.putText(frame, f"Gender: {gender}", (x1, y1 - 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
         return frame, True
     
