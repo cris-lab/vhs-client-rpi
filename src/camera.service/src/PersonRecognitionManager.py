@@ -85,9 +85,15 @@ class PersonRecognitionManager:
 
                 roi = self.extract_roi(frame, track.get('bbox', []))
                 if roi is not None:
-                    # Guardamos el embedding, no la imagen
-                    self.person_data[track_id]['last_roi_image'] = self.embedding_model(roi).results
-            
+                    # Usamos un try-except para manejar posibles errores del modelo de embedding
+                    try:
+                        embedding_result = self.embedding_model(roi)
+                        self.person_data[track_id]['last_roi_image'] = embedding_result.results
+                    except Exception as e:
+                        if self.debug:
+                            print(f"Error generating embedding for track {track_id}: {e}")
+                        self.person_data[track_id]['last_roi_image'] = None
+
             else:
                 info = self.person_data[track_id]
                 info['last_seen'] = now
@@ -124,7 +130,14 @@ class PersonRecognitionManager:
         if roi_current is None:
             return None
         
-        current_embedding = self.embedding_model(roi_current).results
+        # Usamos un try-except para generar el embedding actual
+        try:
+            current_embedding_result = self.embedding_model(roi_current)
+            current_embedding = current_embedding_result.results
+        except Exception as e:
+            if self.debug:
+                print(f"Error generating current embedding: {e}")
+            return None
         
         best_match_id = None
         min_distance = self.config.get('reid_distance_threshold', 0.5)
@@ -225,7 +238,6 @@ class PersonRecognitionManager:
             print(f"Moved track {track_id} (UUID: {self.lost_tracks_buffer[track_id]['uuid']}) to lost_tracks_buffer (awaiting final cleanup check).")
 
     def is_false_positive(self, track_data):
-        # Asegurarse de que trails es una lista
         trails = track_data.get('trails', [])
         track_id = track_data.get('origin_id')
         if not isinstance(trails, list) or len(trails) < 2:
@@ -249,10 +261,10 @@ class PersonRecognitionManager:
     def calculate_trail_movement(self, trails):
         if not trails or len(trails) < 2:
             return 0
+        
         first_point = trails[0]
         last_point = trails[-1]
         
-        # Validación de los puntos del trail
         if not isinstance(first_point, (list, tuple)) or len(first_point) < 4:
             if self.debug: print("Invalid format for first_point in trail.")
             return 0
