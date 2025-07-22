@@ -59,11 +59,11 @@ class FrameProcessor:
                 cv2.putText(frame, f"{person['origin_id']}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             
                 # Mostrar el tiempo de procesamiento
-                if 'age' in person:
+                if 'age' in person and person['age'] is not None:
                     age = person['age']
                     cv2.putText(frame, f"Age: {age}", (x1, y1 - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
                     
-                if 'gender' in person:
+                if 'gender' in person and person['gender'] is not None:
                     gender = person['gender']
                     cv2.putText(frame, f"Gender: {gender}", (x1, y1 - 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
