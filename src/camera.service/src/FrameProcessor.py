@@ -51,24 +51,8 @@ class FrameProcessor:
         for person in person_data.values():
             print(person)
             if 'last_position' in person and len(person['last_position']) == 4:
-                x1 = int(person['last_position'][0])
-                y1 = int(person['last_position'][1])
-                x2 = int(person['last_position'][2])
-                y2 = int(person['last_position'][3])
+                self.draw_bbox_with_id(frame, person['last_position'], person['origin_id'], (0,0,255))
                 
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.putText(frame, f"{person['origin_id']}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-            
-                # Mostrar el tiempo de procesamiento
-                if 'age' in person and person['age'] is not None:
-                    age = person['age']
-                    cv2.putText(frame, f"Age: {age}", (x1, y1 - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                    
-                if 'gender' in person and person['gender'] is not None:
-                    gender = person['gender']
-                    cv2.putText(frame, f"Gender: {gender}", (x1, y1 - 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-
-        
         vhs_utils.draw_grid_on_frame(frame, 8, color=(229, 225, 232), thickness=1)
         
         return frame, True
@@ -102,3 +86,36 @@ class FrameProcessor:
         # if not result:
         #     print("[WARNING] Todas las detecciones fueron descartadas.")
 
+    def draw_bbox_with_id(self, frame, bbox, track_id, color=(0, 255, 0)):
+        x1, y1, x2, y2 = map(int, bbox)
+
+        # Dibujar bbox principal
+        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+
+        # Preparar ID como texto
+        label = str(track_id)
+
+        # Configuración de la cajita
+        font_scale = 0.5
+        font_thickness = 1
+        (label_width, label_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness)
+
+        box_width = label_width + 10
+        box_height = label_height + 8
+
+        # Posición de la caja: esquina superior derecha del bbox
+        box_x1 = x2 - box_width
+        box_y1 = y1
+        box_x2 = x2
+        box_y2 = y1 + box_height
+
+        # Dibujar la cajita rellena
+        cv2.rectangle(frame, (box_x1, box_y1), (box_x2, box_y2), color, -1)
+
+        # Dibujar el texto encima
+        text_x = box_x1 + 5
+        text_y = box_y2 - 5
+        cv2.putText(frame, label, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX,
+                    font_scale, (0, 0, 0), font_thickness, cv2.LINE_AA)
+
+        return frame
