@@ -275,3 +275,32 @@ def draw_tracks(roi, tracker_results, person_data):
         cv2.putText(roi, label, (x, y - 3), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 0), 2)
 
     return roi
+
+def draw_grid_on_frame(self, frame, grid_size=6, color=(0, 255, 0), thickness=1):
+    """
+    Dibuja una grilla en el frame según el tamaño especificado.
+    """
+    height, width, _ = frame.shape
+    cell_width = width // grid_size
+    cell_height = height // grid_size
+
+    # Dibujar líneas verticales
+    for i in range(1, grid_size):
+        x = i * cell_width
+        cv2.line(frame, (x, 0), (x, height), color, thickness)
+
+    # Dibujar líneas horizontales
+    for i in range(1, grid_size):
+        y = i * cell_height
+        cv2.line(frame, (0, y), (width, y), color, thickness)
+
+    # (Opcional) Dibujar texto en cada celda
+    for row in range(grid_size):
+        for col in range(grid_size):
+            zone_label = f"Z{row}{col}"
+            text_x = col * cell_width + 5
+            text_y = row * cell_height + 20
+            cv2.putText(frame, zone_label, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5, (255, 255, 255), 1, cv2.LINE_AA)
+
+    return frame

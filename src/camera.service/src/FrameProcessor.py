@@ -4,6 +4,7 @@ from src.ModelLoader import ModelLoader
 from src.PersonRecognitionManager import PersonRecognitionManager
 import numpy as np
 import cv2
+import src.utils as vhs_utils
 
 class FrameProcessor:
     
@@ -67,6 +68,9 @@ class FrameProcessor:
                     gender = person['gender']
                     cv2.putText(frame, f"Gender: {gender}", (x1, y1 - 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
+        
+        vhs_utils.draw_grid_on_frame(frame, 6, color=(0, 255, 0), thickness=2)
+        
         return frame, True
     
     
