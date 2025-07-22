@@ -276,7 +276,7 @@ def draw_tracks(roi, tracker_results, person_data):
 
     return roi
 
-def draw_grid_on_frame(self, frame, grid_size=6, color=(0, 255, 0), thickness=1):
+def draw_grid_on_frame(frame, grid_size=6, color=(0, 255, 0), thickness=1):
     """
     Dibuja una grilla en el frame según el tamaño especificado.
     """
