@@ -50,7 +50,8 @@ class FrameProcessor:
         # Mejorar esto en otra version
         for person in person_data.values():
             if 'last_position' in person and len(person['last_position']) == 4:
-                self.draw_bbox_with_id(frame, person['last_position'], person['origin_id'], (0,0,255))
+                color = (0,0,255) if person['origin_id'] != person['reid_id'] else (0,255,0)
+                self.draw_bbox_with_id(frame, person['last_position'], person['reid_id'], (0,0,255))
                 
         vhs_utils.draw_grid_on_frame(frame, 8, color=(229, 225, 232), thickness=1)
         
