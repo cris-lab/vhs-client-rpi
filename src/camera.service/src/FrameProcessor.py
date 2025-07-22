@@ -48,15 +48,17 @@ class FrameProcessor:
         
         # Mejorar esto en otra version
         for person in person_data.values():
-            if 'bbox' in person and len(person['bbox']) == 4:
-                x1, y1, x2, y2 = person['bbox']
+            print(person)
+            if 'last_position' in person and len(person['last_position']) == 4:
+                x1, y1, x2, y2 = person['last_position']
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.putText(frame, f"ID: {person['id']}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                
-            if 'age' in person:
-                cv2.putText(frame, f"Age: {person['age']}", (x1, y1 - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                
             
+                # Mostrar el tiempo de procesamiento
+                if 'age' in person:
+                    age = person['age']
+                    cv2.putText(frame, f"Age: {age}", (x1, y1 - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
         return frame, True
     
     
