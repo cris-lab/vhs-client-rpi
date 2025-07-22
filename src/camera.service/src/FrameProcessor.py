@@ -21,7 +21,6 @@ class FrameProcessor:
             annotation_color= (255, 0, 0),
         )
 
-        #self.combined_model = ModelLoader('yolov8n_relu6_human_head--640x640_quant_hailort_hailo8l_1').load_model()
         self.combined_model = degirum_tools.CombiningCompoundModel(
             ModelLoader('yolov8n_relu6_human_head--640x640_quant_hailort_hailo8l_1').load_model(),
             ModelLoader('yolov8n_relu6_face--640x640_quant_hailort_hailo8l_1').load_model(),
@@ -47,11 +46,18 @@ class FrameProcessor:
         
         person_data = self.person_recognition_manager.process_tracks(frame, result)
         
-        # Mejorar esto en otra version
+        # Lógica para pintar de otro color cuando se hace match
         for person in person_data.values():
             if 'last_position' in person and len(person['last_position']) == 4:
-                color = (0,0,255) if person['origin_id'] != person['reid_id'] else (0,255,0)
-                self.draw_bbox_with_id(frame, person['last_position'], person['reid_id'], (0,0,255))
+                # Si el reid_id es diferente del origin_id, significa que se ha recuperado un track.
+                # En ese caso, pintamos de un color diferente, por ejemplo, rojo (0,0,255).
+                # Si no, usamos un color por defecto, como el verde (0,255,0).
+                if person['origin_id'] != person['reid_id']:
+                    color = (0, 0, 255)  # Color rojo para match (re-identificado)
+                else:
+                    color = (0, 255, 0)  # Color verde para track nuevo o normal
+
+                self.draw_bbox_with_id(frame, person['last_position'], person['reid_id'], color)
                 
         vhs_utils.draw_grid_on_frame(frame, 8, color=(229, 225, 232), thickness=1)
         
@@ -79,23 +85,17 @@ class FrameProcessor:
                 #print(f"[WARNING] Detección descartada por estar incompleta: {detection}")
                 indices_a_eliminar.append(idx)
 
-        # Elimina desde el final para no romper los índices
         for idx in reversed(indices_a_eliminar):
             del result[idx]
 
-        # if not result:
-        #     print("[WARNING] Todas las detecciones fueron descartadas.")
 
     def draw_bbox_with_id(self, frame, bbox, track_id, color=(0, 255, 0)):
         x1, y1, x2, y2 = map(int, bbox)
 
-        # Dibujar bbox principal
         cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
 
-        # Preparar ID como texto
         label = str(track_id)
 
-        # Configuración de la cajita
         font_scale = 0.5
         font_thickness = 1
         (label_width, label_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness)
@@ -103,16 +103,13 @@ class FrameProcessor:
         box_width = label_width + 10
         box_height = label_height + 8
 
-        # Posición de la caja: esquina superior derecha del bbox
         box_x1 = x2 - box_width
         box_y1 = y1
         box_x2 = x2
         box_y2 = y1 + box_height
 
-        # Dibujar la cajita rellena
         cv2.rectangle(frame, (box_x1, box_y1), (box_x2, box_y2), color, -1)
 
-        # Dibujar el texto encima
         text_x = box_x1 + 5
         text_y = box_y2 - 5
         cv2.putText(frame, label, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX,
