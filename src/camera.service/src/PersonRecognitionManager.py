@@ -38,11 +38,16 @@ class PersonRecognitionManager:
             d for d in result.results if d.get('label', '').lower() == 'human face'
         ]
         for track in result.results:
+            
             if track.get('label') != 'head':
                 continue
+            
             track_id = track.get('track_id', None)
             if track_id is None:
                 continue
+            
+            if self.attempt_visual_reid(frame, track.get('bbox', []), now):
+                continue  # Ya reasignado, salta creación como nuevo
 
             current_frame_track_ids.add(track_id)
             
@@ -70,6 +75,11 @@ class PersonRecognitionManager:
                     "event_log": ["detected"],
                     "trails": result.trails[track_id]
                 }
+                
+                roi = self.extract_roi(frame, track.get('bbox', []))
+                if roi is not None:
+                    self.person_data[track_id]['last_roi_image'] = roi.copy()
+                
                 if track_id in self.lost_tracks_buffer:
                     recovered_data = self.lost_tracks_buffer.pop(track_id)
                     self.person_data[track_id]['uuid'] = recovered_data.get('uuid', new_uuid)
@@ -99,6 +109,56 @@ class PersonRecognitionManager:
         # Paso 3: Cleanup definitivos
         self.clean_up_lost_tracks(now)
         return self.person_data
+
+    def compare_rois_histogram(self, roi1, roi2):
+        """Compara dos imágenes ROI mediante histogramas de color."""
+        if roi1 is None or roi2 is None:
+            return 0.0
+
+        hsv_roi1 = cv2.cvtColor(roi1, cv2.COLOR_BGR2HSV)
+        hsv_roi2 = cv2.cvtColor(roi2, cv2.COLOR_BGR2HSV)
+
+        hist1 = cv2.calcHist([hsv_roi1], [0, 1], None, [50, 60], [0, 180, 0, 256])
+        hist2 = cv2.calcHist([hsv_roi2], [0, 1], None, [50, 60], [0, 180, 0, 256])
+
+        cv2.normalize(hist1, hist1)
+        cv2.normalize(hist2, hist2)
+
+        similarity = cv2.compareHist(hist1, hist2, cv2.HISTCMP_CORREL)
+        return similarity
+
+    def attempt_visual_reid(self, frame, bbox, now):
+        """
+        Intenta reidentificar un track usando comparación visual (histogramas).
+        Si encuentra una coincidencia visual, recupera el track perdido y lo reasigna.
+
+        Retorna True si reasignó un track, False en caso contrario.
+        """
+        roi_current = self.extract_roi(frame, bbox)
+        if roi_current is None:
+            return False  # No se pudo extraer ROI
+
+        best_match_id = None
+        best_similarity = 0.0
+
+        for lost_id, lost_data in self.lost_tracks_buffer.items():
+            roi_saved = lost_data.get('last_roi_image', None)
+            similarity = self.compare_rois_histogram(roi_current, roi_saved)
+
+            if similarity > 0.7 and similarity > best_similarity:
+                best_similarity = similarity
+                best_match_id = lost_id
+
+        if best_match_id is not None:
+            print(f"[ReID] Track visualmente similar al perdido {best_match_id} (sim={best_similarity:.2f}). Reasignando ID.")
+            recovered_data = self.lost_tracks_buffer.pop(best_match_id)
+            recovered_data['last_seen'] = now
+            recovered_data['last_position'] = bbox
+            self.person_data[best_match_id] = recovered_data
+            return True
+
+        return False
+
 
     def head_has_face(self, head_bbox, face_detections, iou_threshold=0.3):
         if not face_detections:

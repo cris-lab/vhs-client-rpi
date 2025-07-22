@@ -1,0 +1,32 @@
+{
+    "ConfigVersion": 10,
+    "Checksum": "a8f3b8f607289ddbad41a04b2a7ca5b9798a55d5594553cd5670acac6280692e",
+    "DEVICE": [
+        {
+            "DeviceType": "HAILO8L",
+            "RuntimeAgent": "HAILORT",
+            "SupportedDeviceTypes": "HAILORT/HAILO8L, HAILORT/HAILO8"
+        }
+    ],
+    "PRE_PROCESS": [
+        {
+            "InputN": 1,
+            "InputH": 256,
+            "InputW": 128,
+            "InputC": 3,
+            "InputQuantEn": true,
+            "InputPadMethod": "crop-last"
+        }
+    ],
+    "MODEL_PARAMETERS": [
+        {
+            "ModelPath": "repvgg_a0_person_reid--256x128_quant_hailort_hailo8l_1.hef"
+        }
+    ],
+    "POST_PROCESS": [
+        {
+            "OutputPostprocessType": "None",
+            "PythonFile": "HailoDequantize.py"
+        }
+    ]
+}
