@@ -22,7 +22,6 @@ class PersonRecognitionManager:
         self.base_storage_dir = config.get('base_storage_dir', '/opt/vhs/storage/detections')
         self.face_save_limit = config.get('roi_save_limit', 3)
         self.roi_padding_factor = config.get('roi_padding_factor', 0.15)
-        # Corregido el nombre del modelo de 'fece_feature_model' a 'face_feature_model'
         self.face_feature_model = degirum_tools.CombiningCompoundModel(
             ModelLoader('yolov8n_relu6_fairface_gender--256x256_quant_hailort_hailo8l_1').load_model(),
             ModelLoader('yolov8n_relu6_age--256x256_quant_hailort_hailo8l_1').load_model(),
@@ -30,10 +29,16 @@ class PersonRecognitionManager:
         self.embedding_model = ModelLoader('repvgg_a0_person_reid--256x128_quant_hailort_hailo8l_1').load_model()
         os.makedirs(self.base_storage_dir, exist_ok=True)
 
+        # Nuevas configuraciones para el re-ID mejorado
+        self.num_embeddings_to_collect = config.get('num_embeddings_to_collect', 3)
+        self.embedding_capture_delay = config.get('embedding_capture_delay', 1.0)
+        self.embedding_capture_interval = config.get('embedding_capture_interval', 2.0)
+        self.reid_distance_threshold = config.get('reid_distance_threshold', 0.5)
+
     def process_tracks(self, frame, result):
         now = time.time()
         current_frame_track_ids = set()
-        face_detections = [d for d in result.results if d.get('label', '').lower() == 'human face']
+        face_detecciones = [d for d in result.results if d.get('label', '').lower() == 'human face']
 
         for track in result.results:
             if track.get('label') != 'head':
@@ -51,6 +56,7 @@ class PersonRecognitionManager:
                     "gender": None,
                     "age": None,
                     "features": [],
+                    "embeddings": [], # Nuevo: Almacena varios embeddings
                     "description": "",
                     "attributes": {},
                     "frames_seen": 1,
@@ -70,7 +76,8 @@ class PersonRecognitionManager:
                     "trails": result.trails.get(track_id, [])
                 }
                 
-                reassigned_id = self.attempt_visual_reid(frame, track.get('bbox', []))
+                # Intentar re-identificar la persona si hay tracks perdidos
+                reassigned_id, distance = self.attempt_visual_reid(frame, track.get('bbox', []))
                 
                 if reassigned_id is not None:
                     recovered_data = self.lost_tracks_buffer.pop(reassigned_id)
@@ -81,24 +88,14 @@ class PersonRecognitionManager:
                     new_person_data['captured_rois'] = recovered_data.get('captured_rois', [])
                     new_person_data['event_log'] += ["recovered"]
                     
-                    print(f"[ReID] Track {track_id} reassigned and recovered from {reassigned_id}. New reid_id: {new_person_data['reid_id']}.")
+                    print(f"[ReID MATCH] Track {track_id} reassigned and recovered from {reassigned_id}. Distance: {distance:.4f}. New reid_id: {new_person_data['reid_id']}.")
                 
                 self.person_data[track_id] = new_person_data
 
-                roi = self.extract_roi(frame, track.get('bbox', []))
-                if roi is not None:
-                    embedding_data = self.embedding_model(roi)
-                    if self.debug:
-                        print('Generated embedding data type:', type(embedding_data))
-                    
-                    if isinstance(embedding_data, dict) and 'data' in embedding_data:
-                        self.person_data[track_id]['last_roi_image'] = embedding_data['data']
-                    elif isinstance(embedding_data, list):
-                        self.person_data[track_id]['last_roi_image'] = embedding_data
-                    else:
-                        if self.debug:
-                            print(f"Error: Unexpected embedding format for track {track_id}")
-                        self.person_data[track_id]['last_roi_image'] = []
+                # Capturar el primer embedding 1 segundo después
+                self.person_data[track_id]['last_embedding_capture_time'] = now
+                if now - new_person_data['first_appearance_time'] >= self.embedding_capture_delay:
+                    self._capture_and_add_embedding(frame, track_id, track.get('bbox', []))
 
             else:
                 info = self.person_data[track_id]
@@ -108,12 +105,36 @@ class PersonRecognitionManager:
                 info['frames_seen'] += 1
                 info['duration_tracked'] = info['last_seen'] - info['first_appearance_time']
                 info['lost_since'] = None
-            
-            # Corregido el nombre de la variable
-            self.process_faces(frame, track, track_id, face_detections)
+
+                # Lógica para capturar embeddings cada 2 segundos
+                if (now - info.get('last_embedding_capture_time', 0) >= self.embedding_capture_interval and 
+                    len(info['embeddings']) < self.num_embeddings_to_collect):
+                    self._capture_and_add_embedding(frame, track_id, track.get('bbox', []))
+                    info['last_embedding_capture_time'] = now
+
+            self.process_faces(frame, track, track_id, face_detecciones)
 
         self.handle_lost_and_cleanup_tracks(current_frame_track_ids, now)
         return self.person_data
+
+    def _capture_and_add_embedding(self, frame, track_id, bbox):
+        roi = self.extract_roi(frame, bbox)
+        if roi is not None:
+            embedding_data = self.embedding_model(roi)
+            if isinstance(embedding_data, dict) and 'data' in embedding_data:
+                embedding = embedding_data['data']
+            elif isinstance(embedding_data, list):
+                embedding = embedding_data
+            else:
+                if self.debug:
+                    print(f"Error: Unexpected embedding format for track {track_id}")
+                embedding = None
+            
+            if embedding is not None:
+                self.person_data[track_id]['embeddings'].append(embedding)
+                if self.debug:
+                    print(f"Captured embedding {len(self.person_data[track_id]['embeddings'])}/{self.num_embeddings_to_collect} for track {track_id}.")
+
 
     def handle_lost_and_cleanup_tracks(self, current_frame_track_ids, now):
         for track_id in list(self.person_data.keys()):
@@ -139,7 +160,7 @@ class PersonRecognitionManager:
     def attempt_visual_reid(self, frame, bbox):
         roi_current = self.extract_roi(frame, bbox)
         if roi_current is None:
-            return None
+            return None, float('inf')
         
         embedding_data = self.embedding_model(roi_current)
         current_embedding = []
@@ -150,26 +171,56 @@ class PersonRecognitionManager:
             current_embedding = embedding_data
         
         if not current_embedding:
-            return None
+            return None, float('inf')
+        
+        new_bbox_center = self.bbox_center(bbox)
+        new_zone = self.map_to_grid_zone(new_bbox_center[0], new_bbox_center[1])
         
         best_match_id = None
-        min_distance = self.config.get('reid_distance_threshold', 0.5)
+        min_distance = self.reid_distance_threshold
 
         for lost_id, lost_data in list(self.lost_tracks_buffer.items()):
-            saved_embedding = lost_data.get('last_roi_image', None)
             
-            distance = self.compare_embeddings(current_embedding, saved_embedding)
+            # Verificar cercanía de zona
+            last_lost_zone = lost_data.get('exit_zone', None)
+            if last_lost_zone and not self.is_zone_adjacent(new_zone, last_lost_zone):
+                if self.debug:
+                    print(f"[ReID Check] Track {lost_id} (lost in {last_lost_zone}) is not in an adjacent zone to the new detection ({new_zone}). Skipping.")
+                continue
 
-            if distance < min_distance:
-                min_distance = distance
+            saved_embeddings = lost_data.get('embeddings', [])
+            
+            if not saved_embeddings:
+                continue
+
+            # Comparar con todos los embeddings guardados para la persona perdida
+            avg_distance = np.mean([self.compare_embeddings(current_embedding, emb) for emb in saved_embeddings])
+            
+            if self.debug:
+                print(f"[ReID Check] Comparing new track with lost track {lost_id}. Average Distance: {avg_distance:.4f}.")
+
+            if avg_distance < min_distance:
+                min_distance = avg_distance
                 best_match_id = lost_id
     
-        return best_match_id
+        return best_match_id, min_distance
+
+    def is_zone_adjacent(self, zone1, zone2):
+        if not zone1 or not zone2:
+            return True # Si no hay información de zona, no se aplica el filtro
+        try:
+            row1, col1 = int(zone1[1]), int(zone1[2])
+            row2, col2 = int(zone2[1]), int(zone2[2])
+            
+            # Adyacencia horizontal, vertical y diagonal
+            return abs(row1 - row2) <= 1 and abs(col1 - col2) <= 1
+        except (ValueError, IndexError):
+            return True # Fallback si el formato de zona es incorrecto
 
     def head_has_face(self, head_bbox, face_detections, iou_threshold=0.3):
-        if not face_detections:
+        if not face_detecciones:
             return False
-        for face in face_detections:
+        for face in face_detecciones:
             face_bbox = face.get('bbox', [0, 0, 0, 0])
             if self.calculate_iou(head_bbox, face_bbox) >= iou_threshold:
                 return True
@@ -210,12 +261,11 @@ class PersonRecognitionManager:
             return None
         return roi
 
-    # Corregido el nombre del parámetro de 'face_detecciones' a 'face_detections'
-    def process_faces(self, frame, head_track, track_id, face_detections):
+    def process_faces(self, frame, head_track, track_id, face_detecciones):
         if head_track.get('label') != 'head':
             return
         head_bbox = head_track.get('bbox', [0, 0, 0, 0])
-        if not self.head_has_face(head_bbox, face_detections):
+        if not self.head_has_face(head_bbox, face_detecciones):
             if self.debug:
                 print(f"Skipping ROI for track {track_id} (UUID: {self.person_data[track_id]['uuid'] if track_id in self.person_data else 'N/A'}) - No face detected within head bbox.")
             return 
@@ -225,7 +275,6 @@ class PersonRecognitionManager:
             if not person_info:
                 return
             if len(person_info['features']) < self.face_save_limit:
-                # Corregido el nombre de la variable
                 face_result = self.face_feature_model(roi)
                 person_info['features'].append(face_result.results)
     
@@ -242,11 +291,18 @@ class PersonRecognitionManager:
 
     def move_track_to_lost(self, track_id, now):
         if track_id in self.person_data:
-            self.lost_tracks_buffer[track_id] = self.person_data.pop(track_id)
+            track_data = self.person_data.pop(track_id)
+            
+            # Capturar la zona de salida
+            last_position_center = self.bbox_center(track_data['last_position'])
+            track_data['exit_zone'] = self.map_to_grid_zone(last_position_center[0], last_position_center[1])
+
+            self.lost_tracks_buffer[track_id] = track_data
             self.lost_tracks_buffer[track_id]['last_seen'] = now
             self.lost_tracks_buffer[track_id]['lost_since'] = now
             self.lost_tracks_buffer[track_id]['event_log'].append("lost")
-            print(f"Moved track {track_id} (UUID: {self.lost_tracks_buffer[track_id]['uuid']}) to lost_tracks_buffer (awaiting final cleanup check).")
+            if self.debug:
+                print(f"Moved track {track_id} (UUID: {self.lost_tracks_buffer[track_id]['uuid']}) to lost_tracks_buffer. Lost in zone {track_data['exit_zone']}.")
 
     def is_false_positive(self, track_data):
         trails = track_data.get('trails', [])
@@ -382,11 +438,12 @@ class PersonRecognitionManager:
         data_to_save = person_data.copy()
         
         try:
-            if 'last_roi_image' in data_to_save:
-                del data_to_save['last_roi_image']
+            if 'embeddings' in data_to_save:
+                del data_to_save['embeddings']
             
             with open(json_filename, 'w') as f:
                 json.dump(data_to_save, f, indent=4)
-            print(f"Person data saved to: {json_filename}")
+            if self.debug:
+                print(f"Person data saved to: {json_filename}")
         except Exception as e:
             print(f"Error saving person data to JSON for UUID {person_uuid}: {e}")
