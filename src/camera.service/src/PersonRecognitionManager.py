@@ -8,7 +8,7 @@ import threading
 import numpy as np
 import cv2
 from src.ModelLoader import ModelLoader
-from scipy.spatial.distance import cosine # Se mantiene la importación de la distancia coseno
+from scipy.spatial.distance import cosine
 
 class PersonRecognitionManager:
 
@@ -26,7 +26,6 @@ class PersonRecognitionManager:
             ModelLoader('yolov8n_relu6_fairface_gender--256x256_quant_hailort_hailo8l_1').load_model(),
             ModelLoader('yolov8n_relu6_age--256x256_quant_hailort_hailo8l_1').load_model(),
         )
-        
         self.embedding_model = ModelLoader('repvgg_a0_person_reid--256x128_quant_hailort_hailo8l_1').load_model()
         os.makedirs(self.base_storage_dir, exist_ok=True)
 
@@ -70,7 +69,6 @@ class PersonRecognitionManager:
                     "trails": result.trails.get(track_id, [])
                 }
                 
-                # Descomentado y corregido para usar la nueva lógica de embeddings
                 reassigned_id = self.attempt_visual_reid(frame, track.get('bbox', []))
                 
                 if reassigned_id is not None:
@@ -88,12 +86,19 @@ class PersonRecognitionManager:
 
                 roi = self.extract_roi(frame, track.get('bbox', []))
                 if roi is not None:
-                    # Accedemos a la clave 'data' del resultado del modelo
                     embedding_data = self.embedding_model(roi)
-                    print('genered embedding:', embedding_data)
-                    self.person_data[track_id]['last_roi_image'] = embedding_data.get('data', [])
-                    print('pase por embeddings')
-            
+                    if self.debug:
+                        print('Generated embedding data type:', type(embedding_data))
+                    
+                    if isinstance(embedding_data, dict) and 'data' in embedding_data:
+                        self.person_data[track_id]['last_roi_image'] = embedding_data['data']
+                    elif isinstance(embedding_data, list):
+                        self.person_data[track_id]['last_roi_image'] = embedding_data
+                    else:
+                        if self.debug:
+                            print(f"Error: Unexpected embedding format for track {track_id}")
+                        self.person_data[track_id]['last_roi_image'] = []
+
             else:
                 info = self.person_data[track_id]
                 info['last_seen'] = now
@@ -103,7 +108,7 @@ class PersonRecognitionManager:
                 info['duration_tracked'] = info['last_seen'] - info['first_appearance_time']
                 info['lost_since'] = None
 
-            self.process_faces(frame, track, track_id, face_detections)
+            self.process_faces(frame, track, track_id, face_detecciones)
 
         self.handle_lost_and_cleanup_tracks(current_frame_track_ids, now)
         return self.person_data
@@ -120,11 +125,9 @@ class PersonRecognitionManager:
         if emb1 is None or emb2 is None or not emb1 or not emb2:
             return float('inf')
         
-        # Aplanar los embeddings para la comparación si son listas anidadas
         emb1_array = np.array(emb1).flatten()
         emb2_array = np.array(emb2).flatten()
         
-        # Verificar que los arrays no estén vacíos
         if emb1_array.size == 0 or emb2_array.size == 0:
             return float('inf')
         
@@ -136,8 +139,16 @@ class PersonRecognitionManager:
         if roi_current is None:
             return None
         
-        current_embedding_data = self.embedding_model(roi_current).results
-        current_embedding = current_embedding_data.get('data', [])
+        embedding_data = self.embedding_model(roi_current)
+        current_embedding = []
+
+        if isinstance(embedding_data, dict) and 'data' in embedding_data:
+            current_embedding = embedding_data['data']
+        elif isinstance(embedding_data, list):
+            current_embedding = embedding_data
+        
+        if not current_embedding:
+            return None
         
         best_match_id = None
         min_distance = self.config.get('reid_distance_threshold', 0.5)
@@ -197,11 +208,11 @@ class PersonRecognitionManager:
             return None
         return roi
 
-    def process_faces(self, frame, head_track, track_id, face_detections):
+    def process_faces(self, frame, head_track, track_id, face_detecciones):
         if head_track.get('label') != 'head':
             return
         head_bbox = head_track.get('bbox', [0, 0, 0, 0])
-        if not self.head_has_face(head_bbox, face_detections):
+        if not self.head_has_face(head_bbox, face_detecciones):
             if self.debug:
                 print(f"Skipping ROI for track {track_id} (UUID: {self.person_data[track_id]['uuid'] if track_id in self.person_data else 'N/A'}) - No face detected within head bbox.")
             return 
