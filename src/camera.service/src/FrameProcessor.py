@@ -8,17 +8,17 @@ import src.utils as vhs_utils
 
 class FrameProcessor:
     
-    def __init__(self, config, stream, class_list=[]):
+    def __init__(self, config, stream):
 
         self.stream             = stream
         self.tracker            = degirum_tools.ObjectTracker(
-            class_list=stream.get('tracker', {}).get('class_list', class_list),
-            track_thresh=stream.get('tracker', {}).get('track_thresh', 0.5),
-            track_buffer= stream.get('tracker', {}).get('track_buffer', 30),
-            match_thresh= stream.get('tracker', {}).get('trail_depth', 20),
-            trail_depth=stream.get('tracker', {}).get('trail_depth', 20),
-            anchor_point=degirum_tools.AnchorPoint.TOP_CENTER,
-            annotation_color= (255, 0, 0),
+            class_list          = stream.get('tracker', {}).get('class_list', []),
+            track_thresh        = stream.get('tracker', {}).get('track_thresh', 0.5),
+            track_buffer        = stream.get('tracker', {}).get('track_buffer', 30),
+            match_thresh        = stream.get('tracker', {}).get('match_thresh', 20),
+            trail_depth         = stream.get('tracker', {}).get('trail_depth', 20),
+            anchor_point        = degirum_tools.AnchorPoint.TOP_CENTER,
+            annotation_color    = (255, 0, 0),
         )
 
         self.combined_model = degirum_tools.CombiningCompoundModel(
