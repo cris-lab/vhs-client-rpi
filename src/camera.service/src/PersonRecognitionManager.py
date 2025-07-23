@@ -29,7 +29,6 @@ class PersonRecognitionManager:
         self.embedding_model = ModelLoader('repvgg_a0_person_reid--256x128_quant_hailort_hailo8l_1').load_model()
         os.makedirs(self.base_storage_dir, exist_ok=True)
 
-        # Nuevas configuraciones para el re-ID mejorado
         self.num_embeddings_to_collect = config.get('num_embeddings_to_collect', 3)
         self.embedding_capture_delay = config.get('embedding_capture_delay', 1.0)
         self.embedding_capture_interval = config.get('embedding_capture_interval', 2.0)
@@ -38,7 +37,8 @@ class PersonRecognitionManager:
     def process_tracks(self, frame, result):
         now = time.time()
         current_frame_track_ids = set()
-        face_detecciones = [d for d in result.results if d.get('label', '').lower() == 'human face']
+        # Corregido: face_detecciones -> face_detections
+        face_detections = [d for d in result.results if d.get('label', '').lower() == 'human face']
 
         for track in result.results:
             if track.get('label') != 'head':
@@ -56,7 +56,7 @@ class PersonRecognitionManager:
                     "gender": None,
                     "age": None,
                     "features": [],
-                    "embeddings": [], # Nuevo: Almacena varios embeddings
+                    "embeddings": [],
                     "description": "",
                     "attributes": {},
                     "frames_seen": 1,
@@ -76,7 +76,6 @@ class PersonRecognitionManager:
                     "trails": result.trails.get(track_id, [])
                 }
                 
-                # Intentar re-identificar la persona si hay tracks perdidos
                 reassigned_id, distance = self.attempt_visual_reid(frame, track.get('bbox', []))
                 
                 if reassigned_id is not None:
@@ -92,7 +91,6 @@ class PersonRecognitionManager:
                 
                 self.person_data[track_id] = new_person_data
 
-                # Capturar el primer embedding 1 segundo después
                 self.person_data[track_id]['last_embedding_capture_time'] = now
                 if now - new_person_data['first_appearance_time'] >= self.embedding_capture_delay:
                     self._capture_and_add_embedding(frame, track_id, track.get('bbox', []))
@@ -106,13 +104,13 @@ class PersonRecognitionManager:
                 info['duration_tracked'] = info['last_seen'] - info['first_appearance_time']
                 info['lost_since'] = None
 
-                # Lógica para capturar embeddings cada 2 segundos
                 if (now - info.get('last_embedding_capture_time', 0) >= self.embedding_capture_interval and 
                     len(info['embeddings']) < self.num_embeddings_to_collect):
                     self._capture_and_add_embedding(frame, track_id, track.get('bbox', []))
                     info['last_embedding_capture_time'] = now
-
-            self.process_faces(frame, track, track_id, face_detecciones)
+            
+            # Corregido: face_detecciones -> face_detections
+            self.process_faces(frame, track, track_id, face_detections)
 
         self.handle_lost_and_cleanup_tracks(current_frame_track_ids, now)
         return self.person_data
@@ -181,7 +179,6 @@ class PersonRecognitionManager:
 
         for lost_id, lost_data in list(self.lost_tracks_buffer.items()):
             
-            # Verificar cercanía de zona
             last_lost_zone = lost_data.get('exit_zone', None)
             if last_lost_zone and not self.is_zone_adjacent(new_zone, last_lost_zone):
                 if self.debug:
@@ -193,7 +190,6 @@ class PersonRecognitionManager:
             if not saved_embeddings:
                 continue
 
-            # Comparar con todos los embeddings guardados para la persona perdida
             avg_distance = np.mean([self.compare_embeddings(current_embedding, emb) for emb in saved_embeddings])
             
             if self.debug:
@@ -207,20 +203,19 @@ class PersonRecognitionManager:
 
     def is_zone_adjacent(self, zone1, zone2):
         if not zone1 or not zone2:
-            return True # Si no hay información de zona, no se aplica el filtro
+            return True
         try:
             row1, col1 = int(zone1[1]), int(zone1[2])
             row2, col2 = int(zone2[1]), int(zone2[2])
             
-            # Adyacencia horizontal, vertical y diagonal
             return abs(row1 - row2) <= 1 and abs(col1 - col2) <= 1
         except (ValueError, IndexError):
-            return True # Fallback si el formato de zona es incorrecto
+            return True
 
     def head_has_face(self, head_bbox, face_detections, iou_threshold=0.3):
-        if not face_detecciones:
+        if not face_detections:
             return False
-        for face in face_detecciones:
+        for face in face_detections:
             face_bbox = face.get('bbox', [0, 0, 0, 0])
             if self.calculate_iou(head_bbox, face_bbox) >= iou_threshold:
                 return True
@@ -261,11 +256,11 @@ class PersonRecognitionManager:
             return None
         return roi
 
-    def process_faces(self, frame, head_track, track_id, face_detecciones):
+    def process_faces(self, frame, head_track, track_id, face_detections):
         if head_track.get('label') != 'head':
             return
         head_bbox = head_track.get('bbox', [0, 0, 0, 0])
-        if not self.head_has_face(head_bbox, face_detecciones):
+        if not self.head_has_face(head_bbox, face_detections):
             if self.debug:
                 print(f"Skipping ROI for track {track_id} (UUID: {self.person_data[track_id]['uuid'] if track_id in self.person_data else 'N/A'}) - No face detected within head bbox.")
             return 
@@ -293,7 +288,6 @@ class PersonRecognitionManager:
         if track_id in self.person_data:
             track_data = self.person_data.pop(track_id)
             
-            # Capturar la zona de salida
             last_position_center = self.bbox_center(track_data['last_position'])
             track_data['exit_zone'] = self.map_to_grid_zone(last_position_center[0], last_position_center[1])
 
