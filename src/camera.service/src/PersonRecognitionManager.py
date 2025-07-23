@@ -22,7 +22,8 @@ class PersonRecognitionManager:
         self.base_storage_dir = config.get('base_storage_dir', '/opt/vhs/storage/detections')
         self.face_save_limit = config.get('roi_save_limit', 3)
         self.roi_padding_factor = config.get('roi_padding_factor', 0.15)
-        self.fece_feature_model = degirum_tools.CombiningCompoundModel(
+        # Corregido el nombre del modelo de 'fece_feature_model' a 'face_feature_model'
+        self.face_feature_model = degirum_tools.CombiningCompoundModel(
             ModelLoader('yolov8n_relu6_fairface_gender--256x256_quant_hailort_hailo8l_1').load_model(),
             ModelLoader('yolov8n_relu6_age--256x256_quant_hailort_hailo8l_1').load_model(),
         )
@@ -107,8 +108,9 @@ class PersonRecognitionManager:
                 info['frames_seen'] += 1
                 info['duration_tracked'] = info['last_seen'] - info['first_appearance_time']
                 info['lost_since'] = None
-
-            self.process_faces(frame, track, track_id, face_detecciones)
+            
+            # Corregido el nombre de la variable
+            self.process_faces(frame, track, track_id, face_detections)
 
         self.handle_lost_and_cleanup_tracks(current_frame_track_ids, now)
         return self.person_data
@@ -208,11 +210,12 @@ class PersonRecognitionManager:
             return None
         return roi
 
-    def process_faces(self, frame, head_track, track_id, face_detecciones):
+    # Corregido el nombre del parámetro de 'face_detecciones' a 'face_detections'
+    def process_faces(self, frame, head_track, track_id, face_detections):
         if head_track.get('label') != 'head':
             return
         head_bbox = head_track.get('bbox', [0, 0, 0, 0])
-        if not self.head_has_face(head_bbox, face_detecciones):
+        if not self.head_has_face(head_bbox, face_detections):
             if self.debug:
                 print(f"Skipping ROI for track {track_id} (UUID: {self.person_data[track_id]['uuid'] if track_id in self.person_data else 'N/A'}) - No face detected within head bbox.")
             return 
@@ -222,9 +225,10 @@ class PersonRecognitionManager:
             if not person_info:
                 return
             if len(person_info['features']) < self.face_save_limit:
-                face_result = self.fece_feature_model(roi)
+                # Corregido el nombre de la variable
+                face_result = self.face_feature_model(roi)
                 person_info['features'].append(face_result.results)
-
+    
     def get_roi_area(self, roi):
         return roi.shape[0] * roi.shape[1]
 
