@@ -28,7 +28,7 @@ if stream_config is None:
     raise ValueError(f"No se encontró ningún stream con el ID: {stream_id}")
 
 video_source_url    = stream_config['input']['url']
-frame_processor     = FrameProcessor(config, stream_config, stream_config.get('tracker', {}).get('class_list', ['person', 'head']))
+frame_processor     = FrameProcessor(config, stream_config)
 
 # --- Main Script ---
 if __name__ == "__main__":

@@ -12,11 +12,11 @@ class FrameProcessor:
 
         self.stream             = stream
         self.tracker            = degirum_tools.ObjectTracker(
-            class_list          = ['head'],#stream.get('tracker', {}).get('class_list', []),
-            track_thresh        = 0.4,#stream.get('tracker', {}).get('track_thresh', 0.5),
-            track_buffer        = 20,#stream.get('tracker', {}).get('track_buffer', 30),
-            match_thresh        = 0.7,#stream.get('tracker', {}).get('match_thresh', 20),
-            trail_depth         = 20,#stream.get('tracker', {}).get('trail_depth', 20),
+            class_list          = stream.get('tracker', {}).get('class_list', []),
+            track_thresh        = stream.get('tracker', {}).get('track_thresh', 0.5),
+            track_buffer        = stream.get('tracker', {}).get('track_buffer', 30),
+            match_thresh        = stream.get('tracker', {}).get('match_thresh', 20),
+            trail_depth         = stream.get('tracker', {}).get('trail_depth', 20),
             anchor_point        = degirum_tools.AnchorPoint.TOP_CENTER,
             annotation_color    = (255, 0, 0),
         )
