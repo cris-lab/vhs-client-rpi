@@ -61,7 +61,7 @@ class FrameProcessor:
                 
         if self.stream.get('grid').get('show', False):
             
-            grid_size = self.stream.get('grid').get('size', 4)
+            grid_size = self.stream.get('grid', {}).get('size', 4)
             vhs_utils.draw_grid_on_frame(frame, grid_size, color=(229, 225, 232), thickness=1)
         
         return frame, True
