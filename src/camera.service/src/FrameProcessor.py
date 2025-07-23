@@ -59,7 +59,10 @@ class FrameProcessor:
 
                 self.draw_bbox_with_id(frame, person['last_position'], person['reid_id'], color)
                 
-        vhs_utils.draw_grid_on_frame(frame, 8, color=(229, 225, 232), thickness=1)
+        if self.stream.get('grid').get('show', False):
+            
+            grid_size = self.stream.get('grid').get('size', 4)
+            vhs_utils.draw_grid_on_frame(frame, grid_size, color=(229, 225, 232), thickness=1)
         
         return frame, True
     
