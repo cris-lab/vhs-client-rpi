@@ -43,7 +43,7 @@ class SyncDocumentsUseCase:
 
                     data_by_file[file] = data 
 
-                    filter_query = {"eventId": data["eventId"]}
+                    filter_query = {"uuid": data["uuid"]}
                     requests_bulk.append(
                         UpdateOne(
                             filter_query,
@@ -64,28 +64,6 @@ class SyncDocumentsUseCase:
 
                 collection.bulk_write(requests_bulk)
                 logging.info(f"Insertados/actualizados {len(requests_bulk)} documentos en la colección {self.collection_name}")
-
-                # Enviar a la API y eliminar archivos
-                for file, data in data_by_file.items():
-                    camera_id = data.get("camera", {}).get("id")
-                    if not camera_id:
-                        logging.warning(f"No se encontró camera.id en {file}")
-                        continue
-
-                    try:
-                        response = requests.post(
-                            f"{self.api_url_base}/{camera_id}",
-                            json=data,
-                            timeout=5
-                        )
-                        if response.status_code == 200:
-                            logging.info(f"Evento enviado correctamente a la API para cámara {camera_id}")
-                            os.remove(os.path.join(self.directory, file))
-                            logging.info(f"Archivo {file} eliminado.")
-                        else:
-                            logging.error(f"Error al enviar {file} a la API. Status: {response.status_code}")
-                    except Exception as e:
-                        logging.error(f"Error al enviar {file} a la API: {e}")
 
                 client.close()
 

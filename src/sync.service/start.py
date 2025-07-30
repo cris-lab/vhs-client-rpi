@@ -1,6 +1,6 @@
 import time
 import logging
-from SyncDocumentsUseCase import SyncDocumentsUseCase
+from src.SyncDocumentsUseCase import SyncDocumentsUseCase
 
 # Configurar logging
 logging.basicConfig(
@@ -11,7 +11,7 @@ logging.basicConfig(
 if __name__ == "__main__":
     
     logging.info("Iniciando servicio de sincronización de documentos")
-    sync_use_case = SyncDocumentsUseCase("/var/lib/vhs/storage/detections")
+    sync_use_case = SyncDocumentsUseCase("/opt/vhs/storage/detections")
     
     while True:
         sync_use_case.execute()

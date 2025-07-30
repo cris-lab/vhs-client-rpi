@@ -1,121 +1,117 @@
-from datetime import datetime
-import degirum_tools
-from src.ModelLoader import ModelLoader
-from src.PersonRecognitionManager import PersonRecognitionManager
 import numpy as np
 import cv2
-import src.utils as vhs_utils
+import degirum_tools
+from src.ModelLoader import ModelLoader
+from src.CustomLineCounter import CustomLineCounter
+from src.EventProcessor import EventProcessor
+from typing import Tuple, Dict, Any
+from src.HeatMap import HeatMap
 
 class FrameProcessor:
     
-    def __init__(self, config, stream):
+    def __init__(self, config: Dict[str, Any], stream: Dict[str, Any]):
+        self.stream = stream
 
-        self.stream             = stream
-        self.tracker            = degirum_tools.ObjectTracker(
-            class_list          = stream.get('tracker', {}).get('class_list', []),
-            track_thresh        = stream.get('tracker', {}).get('track_thresh', 0.5),
-            track_buffer        = stream.get('tracker', {}).get('track_buffer', 30),
-            match_thresh        = stream.get('tracker', {}).get('match_thresh', 20),
-            trail_depth         = stream.get('tracker', {}).get('trail_depth', 20),
-            anchor_point        = degirum_tools.AnchorPoint.TOP_CENTER,
-            annotation_color    = (255, 0, 0),
-        )
-
-        self.combined_model = degirum_tools.CombiningCompoundModel(
-            ModelLoader('yolov8n_relu6_human_head--640x640_quant_hailort_hailo8l_1').load_model(),
-            ModelLoader('yolov8n_relu6_face--640x640_quant_hailort_hailo8l_1').load_model(),
+        self.tracker = degirum_tools.ObjectTracker(
+            class_list=['head', 'person'],
+            track_thresh=stream.get('tracker', {}).get('track_thresh', 0.5),
+            track_buffer=stream.get('tracker', {}).get('track_buffer', 30),
+            match_thresh=stream.get('tracker', {}).get('match_thresh', 20),
+            trail_depth=stream.get('tracker', {}).get('trail_depth', 20),
+            anchor_point=degirum_tools.AnchorPoint.CENTER,
+            annotation_color=(255, 0, 0),
         )
         
+        self.event_processor = EventProcessor(config, stream)
+        self.line_counters = self.create_counters(stream)
+        
+        self.combined_model = degirum_tools.CombiningCompoundModel(
+            ModelLoader('yolo11n_silu_coco--640x640_quant_hailort_hailo8l_1').load_model(),
+            ModelLoader('yolov8n_relu6_face--640x640_quant_hailort_hailo8l_1').load_model()
+        )
+        
+        self.heatmap = HeatMap(
+            model=self.combined_model,
+            frame_size=(640, 640),
+            grid_size=(20, 20),
+            decay_factor=0.9
+        )
 
-        self.person_recognition_manager = PersonRecognitionManager(config)
+        print("[✔] FrameProcessor inicializado")
 
-
-    def execute(self, frame):
-        result = self.combined_model(frame)
-
-        if not result:
-            return frame, False
-
+    def execute(self, frame: np.ndarray) -> Tuple[np.ndarray, bool]:
+        
+        heat_map    = self.heatmap.analyze(frame)
+        result      = self.combined_model(frame)
+        
         self.filtrar_detecciones_validas(result.results)
 
-        if not result:
-            return frame, False
-        
         if len(result.results) > 0:
-            self.tracker.analyze(result)
-        
-        person_data = self.person_recognition_manager.process_tracks(frame, result)
-        
-        # Lógica para pintar de otro color cuando se hace match
-        for person in person_data.values():
-            if 'last_position' in person and len(person['last_position']) == 4:
-                # Si el reid_id es diferente del origin_id, significa que se ha recuperado un track.
-                # En ese caso, pintamos de un color diferente, por ejemplo, rojo (0,0,255).
-                # Si no, usamos un color por defecto, como el verde (0,255,0).
-                if person['origin_id'] != person['reid_id']:
-                    color = (0, 0, 255)  # Color rojo para match (re-identificado)
-                else:
-                    color = (0, 255, 0)  # Color verde para track nuevo o normal
+            current_track_ids_in_result = set(
+                r['track_id'] for r in result.results if 'track_id' in r
+            )
 
-                self.draw_bbox_with_id(frame, person['last_position'], person['reid_id'], color)
-                
-        if self.stream.get('grid').get('show', False):
-            
-            grid_size = self.stream.get('grid', {}).get('size', 4)
-            vhs_utils.draw_grid_on_frame(frame, grid_size, color=(229, 225, 232), thickness=1)
+            to_remove = [
+                e for e in self.event_processor.event_tracker
+                if e['tid'] not in current_track_ids_in_result and not e.get('inference_in_progress', False)
+            ]
+            if to_remove:
+                print(f"[🧹] Posibles eventos a eliminar: {[e['tid'] for e in to_remove]}")
+
+            self.tracker.analyze(result)
+
+            for counter in self.line_counters:
+                counter.analyze(result)
+
+            self.event_processor.analyze(result, frame)
+
+            frame = self.tracker.annotate(result, frame)
+
+            for res in result.results:
+                label = res.get('label', '').lower()
+                if label == 'human face':
+                    x1, y1, x2, y2 = map(int, res['bbox'])
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    track_id = res.get('track_id')
+                    if track_id is not None:
+                        cv2.putText(frame, f'ID: {track_id}', (x1, y1 - 5),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+
+        for counter in self.line_counters:
+            frame = counter.annotate(frame)
         
         return frame, True
-    
-    
-    
-    def filtrar_detecciones_validas(self, result):
-        """
-        Filtra las detecciones inválidas directamente sobre la lista original.
-        Elimina cualquier objeto que no tenga 'bbox' y 'label'.
 
-        Args:
-            result (list): Lista de detecciones (modificada in-place).
-        """
+    def filtrar_detecciones_validas(self, result_list: list):
         indices_a_eliminar = []
-
-        for idx, detection in enumerate(result):
-            if not isinstance(detection, dict):
-                #print(f"[WARNING] Resultado no es un diccionario válido: {detection}")
-                indices_a_eliminar.append(idx)
-                continue
-
+        for idx, detection in enumerate(result_list):
             if 'bbox' not in detection or 'label' not in detection:
-                #print(f"[WARNING] Detección descartada por estar incompleta: {detection}")
                 indices_a_eliminar.append(idx)
-
         for idx in reversed(indices_a_eliminar):
-            del result[idx]
+            del result_list[idx]
+        if indices_a_eliminar:
+            print(f"[⚠️] Detecciones inválidas eliminadas: {indices_a_eliminar}")
 
-
-    def draw_bbox_with_id(self, frame, bbox, track_id, color=(0, 255, 0)):
-        x1, y1, x2, y2 = map(int, bbox)
-
-        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-
-        label = str(track_id)
-
-        font_scale = 0.5
-        font_thickness = 1
-        (label_width, label_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness)
-
-        box_width = label_width + 10
-        box_height = label_height + 8
-
-        box_x1 = x2 - box_width
-        box_y1 = y1
-        box_x2 = x2
-        box_y2 = y1 + box_height
-
-        cv2.rectangle(frame, (box_x1, box_y1), (box_x2, box_y2), color, -1)
-
-        text_x = box_x1 + 5
-        text_y = box_y2 - 5
-        cv2.putText(frame, label, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX,
-                    font_scale, (0, 0, 0), font_thickness, cv2.LINE_AA)
-
-        return frame
+    def create_counters(self, stream):
+        counters = []
+        for element in stream.get('lines'):
+            callbacks = []
+            for cb_name in element.get("call_backs", []):
+                cb_func = getattr(self.event_processor, cb_name, None)
+                if cb_func:
+                    callbacks.append(cb_func)
+            counter = CustomLineCounter(
+                line=element.get('points'),
+                count_direction=element.get('direction').upper(),
+                anchor_point=degirum_tools.AnchorPoint.CENTER,
+                name=element.get('name'),
+                class_list=element.get('class', []),
+                on_cross_callbacks=callbacks,
+                annotation_color=(255, 0, 0),
+                annotation_line_width=2,
+                annotation_text_margin=5,
+                annotation_text_thickness=1,
+            )
+            counters.append(counter)
+        print(f"[✔] Line counters creados: {len(counters)}")
+        return counters
