@@ -41,7 +41,7 @@ class FrameProcessor:
 
     def execute(self, frame: np.ndarray) -> Tuple[np.ndarray, bool]:
         
-        heat_map    = self.heatmap.analyze(frame)
+        #heat_map    = self.heatmap.analyze(frame)
         result      = self.combined_model(frame)
         
         self.filtrar_detecciones_validas(result.results)
@@ -51,12 +51,17 @@ class FrameProcessor:
                 r['track_id'] for r in result.results if 'track_id' in r
             )
 
+            # --- CÓDIGO CORREGIDO ---
+            # La lista `to_remove` debe contener los TIDs (enteros)
             to_remove = [
-                e for e in self.event_processor.event_tracker
-                if e['tid'] not in current_track_ids_in_result and not e.get('inference_in_progress', False)
+                tid for tid, event_data in self.event_processor.event_tracker.items()
+                if tid not in current_track_ids_in_result and not event_data.get('inference_in_progress', False)
             ]
+            
             if to_remove:
-                print(f"[🧹] Posibles eventos a eliminar: {[e['tid'] for e in to_remove]}")
+                print(f"[🧹] Posibles eventos a eliminar: {to_remove}")
+                self.event_processor.clear_event_tracker(to_remove)
+            # --- FIN DEL CÓDIGO CORREGIDO ---
 
             self.tracker.analyze(result)
 

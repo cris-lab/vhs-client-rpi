@@ -304,3 +304,29 @@ def draw_grid_on_frame(frame, grid_size=6, color=(0, 255, 0), thickness=1):
                         0.34, (255, 255, 255), 1, cv2.LINE_AA)
 
     return frame
+
+def opencv_nms(detections, iou_threshold=0.5, score_threshold=0.3):
+    boxes = []
+    scores = []
+    for det in detections:
+        if 'bbox' in det and 'score' in det:
+            x1, y1, x2, y2 = det['bbox']
+            boxes.append([x1, y1, x2 - x1, y2 - y1])  # formato (x, y, w, h)
+            scores.append(float(det['score']))
+
+    if not boxes:
+        return []
+
+    indices = cv2.dnn.NMSBoxes(boxes, scores, score_threshold, iou_threshold)
+
+    # 🔧 Corregir retorno dependiendo del tipo
+    if len(indices) == 0:
+        return []
+
+    # Si es un np.ndarray de shape (N,1), aplanamos
+    if isinstance(indices, (list, tuple)) and isinstance(indices[0], (list, tuple)):
+        indices = [i[0] for i in indices]
+    elif hasattr(indices, 'flatten'):
+        indices = indices.flatten().tolist()
+
+    return [detections[i] for i in indices]
